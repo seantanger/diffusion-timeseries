@@ -164,4 +164,14 @@ print(f"Black-Scholes Call Option Price: {call_price_bs:.4f}")
 print(f"Monte Carlo Put Option Price: {put_price_mc:.4f}")
 print(f"Black-Scholes Put Option Price: {put_price_bs:.4f}")
 
-diffusion = train_diffusion_model(n_epochs=25, batch_size=64, device=device)
+# Diffusion results
+diffusion, losses = train_diffusion_model(n_epochs=25, batch_size=64, device=device)
+torch.save(diffusion.model.state_dict(), "./parameters/timeseries_unet_mu=0.02_sigma=0.2_t=1")
+generated_paths = diffusion.sample(n_samples = 10000, device=device)
+generated_paths_transformed = dataset.inverse_transform(generated_paths).squeeze(1)
+
+# Compute diffusion monte carlo option prices
+call_price_mc = monte_carlo_option_price(generated_paths_transformed, K, T, r,option_type="call")
+put_price_mc = monte_carlo_option_price(generated_paths_transformed, K, T, r,option_type="put")
+print(f"Monte Carlo Call Option Price: {call_price_mc:.4f}")
+print(f"Black-Scholes Call Option Price: {call_price_bs:.4f}")
