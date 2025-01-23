@@ -402,7 +402,7 @@ if __name__ == '__main__':
     batch_size = 64
     model = Spk_UNet(
         T=1000, ch=128, ch_mult=[1, 2, 2, 4], attn=[8],
-        num_res_blocks=2, dropout=0.1, timestep=4).cuda()
+        num_res_blocks=2, dropout=0.1, timestep=4)
 
     ## Load model
     # ckpt = torch.load(os.path.join('/home/jiahang/jiahang/Diffusion_with_spk/pytorch-ddpm/logs/threshold_test', 'snnbest.pt'))
@@ -411,8 +411,8 @@ if __name__ == '__main__':
     # ckpt = torch.load(os.path.join('/home/jiahang/jiahang/Diffusion_with_spk/pytorch-ddpm/logs/final_thres_log/45000ckpt.pt'))
     # model.load_state_dict(ckpt['net_model'])
 
-    x = torch.randn(batch_size, 1, 256).cuda()
-    t = torch.randint(1000, (batch_size,)).cuda()
+    x = torch.randn(batch_size, 1, 64)
+    t = torch.randint(1000, (batch_size,))
     # print(model)
     y = model(x, t)
     print('y:', y.shape, 't:', t.shape)
@@ -421,4 +421,4 @@ if __name__ == '__main__':
         model_size += param.data.nelement()
     print('Model params: %.2f M' % (model_size / 1024 / 1024))
     functional.reset_net(model)
-    print(model)
+    # print(model)
