@@ -14,7 +14,7 @@ from diffusion import DiffusionModel, SpikingDiffusionModel
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class GBMDataset(Dataset):
-    def __init__(self, n_samples, sequence_length, S0=100, mu=0.1, sigma=0.2, T=1):
+    def __init__(self, n_samples, sequence_length, S0, mu, sigma, T=1):
         self.data = []
         # t = np.arange(sequence_length) * dt
         # print(t)
@@ -47,7 +47,7 @@ class GBMDataset(Dataset):
             scaled_data = scaled_data.cpu().numpy()
         return self.scaler.inverse_transform(scaled_data.reshape(-1, 1)).reshape(scaled_data.shape)
     
-def monte_carlo_option_price(paths, K, T, r, option_type="call"):
+def monte_carlo_option_price(paths, K, T, r, n_timesteps, option_type="call"):
     """
     Compute the price of a European option using Monte Carlo simulation.
 
@@ -63,31 +63,31 @@ def monte_carlo_option_price(paths, K, T, r, option_type="call"):
     Returns:
     option_price : Estimated option price
     """
-    # Simulate GBM paths
-    # paths = simulate_gbm(S0, r, sigma, T, N=252, M=M)
+    t = np.linspace(0, T, n_timesteps+1)  # Time array
+    # Time to maturity at each time step
 
-    # Get the terminal prices (S_T)
-    S_T = paths[:, -1]
+    time_to_maturity = T - t  # Shape: (N+1,)
 
-    # Compute payoffs
+    # Compute payoffs at each time step
     if option_type == "call":
-        payoffs = np.maximum(S_T - K, 0)
+        payoffs = np.maximum(paths - K, 0)  # Shape: (M, N+1)
     elif option_type == "put":
-        payoffs = np.maximum(K - S_T, 0)
+        payoffs = np.maximum(K - paths, 0)  # Shape: (M, N+1)
     else:
         raise ValueError("option_type must be 'call' or 'put'")
 
     # Discount payoffs to present value
-    discounted_payoffs = np.exp(-r * T) * payoffs
+    discount_factors = np.exp(-r * time_to_maturity)  # Shape: (N+1,)
+    discounted_payoffs = payoffs * discount_factors  # Shape: (M, N+1)
 
     # Compute option price as the average of discounted payoffs
-    option_price = np.mean(discounted_payoffs)
+    option_prices = np.mean(discounted_payoffs, axis=0)  # Shape: (N+1,)
 
-    return option_price
+    return option_prices
 
-def black_scholes_price(S0, K, T, r, sigma, option_type="call"):
+def black_scholes_price(S0, K, T, r, sigma, n_timesteps, option_type="call"):
     """
-    Compute the Black-Scholes price of a European option.
+    Compute the Black-Scholes price of a European option at each time step.
 
     Parameters:
     S0         : Initial price
@@ -98,28 +98,50 @@ def black_scholes_price(S0, K, T, r, sigma, option_type="call"):
     option_type: "call" or "put"
 
     Returns:
-    option_price : Black-Scholes option price
+    t          : Time array (N+1 array)
+    option_prices : Black-Scholes option prices at each time step (N+1 array)
     """
-    d1 = (np.log(S0 / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
-    d2 = d1 - sigma * np.sqrt(T)
+    t = np.linspace(0, T, N+1)  # Time array
 
+    # Time to maturity at each time step
+    time_to_maturity = T - t  # Shape: (N+1,)
+
+    # Compute d1 and d2 for all time steps
+    with np.errstate(divide='ignore', invalid='ignore'):
+        d1 = (np.log(S0 / K) + (r + 0.5 * sigma**2) * time_to_maturity) / (sigma * np.sqrt(time_to_maturity))
+        d2 = d1 - sigma * np.sqrt(time_to_maturity)
+
+    # Handle the case at maturity (t = T)
+    d1[-1] = np.inf if S0 > K else -np.inf
+    d2[-1] = np.inf if S0 > K else -np.inf
+
+    # Compute option prices at each time step
     if option_type == "call":
-        option_price = S0 * stats.norm.cdf(d1) - K * np.exp(-r * T) * stats.norm.cdf(d2)
+        option_prices = S0 * stats.norm.cdf(d1) - K * np.exp(-r * time_to_maturity) * stats.norm.cdf(d2)
     elif option_type == "put":
-        option_price = K * np.exp(-r * T) * stats.norm.cdf(-d2) - S0 * stats.norm.cdf(-d1)
+        option_prices = K * np.exp(-r * time_to_maturity) * stats.norm.cdf(-d2) - S0 * stats.norm.cdf(-d1)
     else:
         raise ValueError("option_type must be 'call' or 'put'")
 
-    return option_price
+    # At maturity, the option price is the payoff
+    if option_type == "call":
+        option_prices[-1] = max(S0 - K, 0)
+    elif option_type == "put":
+        option_prices[-1] = max(K - S0, 0)
 
-def train_diffusion_model(n_epochs=100, batch_size=64, device="cuda"):
+    return option_prices
+
+def train_diffusion_model(dataset, n_epochs, batch_size, device, spiking):
     # Create dataset
     sequence_length = 127
-    dataset = GBMDataset(10000, sequence_length)
+    # dataset = GBMDataset(10000, sequence_length)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     
     # Initialize model
-    diffusion = DiffusionModel(sequence_length=sequence_length+1, device=device)
+    if spiking:
+        diffusion = SpikingDiffusionModel(sequence_length=sequence_length+1, device=device)
+    else:
+        diffusion = DiffusionModel(sequence_length=sequence_length+1, device=device)
     diffusion.model.to(device)
     optimizer = torch.optim.Adam(diffusion.model.parameters(), lr=1e-4)
     losses = []
@@ -134,8 +156,8 @@ def train_diffusion_model(n_epochs=100, batch_size=64, device="cuda"):
         
         if (epoch + 1) % 10 == 0:
             print(f"Epoch {epoch+1}, Average Loss: {total_loss/len(dataloader):.4f}")
-    
     return diffusion, losses
+
 
 # Parameters
 S0 = 100       # Initial price
@@ -145,33 +167,64 @@ r = 0.02       # Risk-free rate
 sigma = 0.2    # Volatility
 M = 10000    # Number of paths (large for convergence)
 N = 127 # sequence length
+t = np.linspace(0, T, N+1)  # Time array
 
-dataset = GBMDataset(M, N, S0, r, sigma, T)
+dataset  =GBMDataset(n_samples=M, sequence_length=N, S0=S0, mu=r, sigma=sigma, T=T)
 paths = dataset.data
 paths = dataset.inverse_transform(paths).squeeze(1)
 
-# Compute Monte Carlo option prices
-call_price_mc = monte_carlo_option_price(paths, K, T, r,option_type="call")
-put_price_mc = monte_carlo_option_price(paths, K, T, r,option_type="put")
 
-# Compute Black-Scholes prices
-call_price_bs = black_scholes_price(S0, K, T, r, sigma, option_type="call")
-put_price_bs = black_scholes_price(S0, K, T, r, sigma, option_type="put")
+# Train diffusion models
+diffusion, losses = train_diffusion_model(dataset=dataset, n_epochs=25, batch_size=32, device=device, spiking=False)
+torch.save(diffusion.model.state_dict(), f"./parameters/timeseries_unet_mu={r}_sigma={sigma}_t={T}")
+spiking_diffusion, spiking_losses = train_diffusion_model(dataset=dataset, n_epochs=25, batch_size=16, device=device, spiking=True)
+torch.save(spiking_diffusion.model.state_dict(), f"./parameters/spiking_timeseries_unet_mu={r}_sigma={sigma}_t={T}")
 
-# Print results
-print(f"Monte Carlo Call Option Price: {call_price_mc:.4f}")
-print(f"Black-Scholes Call Option Price: {call_price_bs:.4f}")
-print(f"Monte Carlo Put Option Price: {put_price_mc:.4f}")
-print(f"Black-Scholes Put Option Price: {put_price_bs:.4f}")
-
-# Diffusion results
-diffusion, losses = train_diffusion_model(n_epochs=25, batch_size=64, device=device)
-torch.save(diffusion.model.state_dict(), "./parameters/timeseries_unet_mu=0.02_sigma=0.2_t=1")
+# Generate paths
 generated_paths = diffusion.sample(n_samples = 10000, device=device)
 generated_paths_transformed = dataset.inverse_transform(generated_paths).squeeze(1)
+spiking_generated_paths = spiking_diffusion.sample(n_samples = 10000, device=device)
+spiking_generated_paths_transformed = dataset.inverse_transform(spiking_generated_paths).squeeze(1)
 
-# Compute diffusion monte carlo option prices
-call_price_mc = monte_carlo_option_price(generated_paths_transformed, K, T, r,option_type="call")
-put_price_mc = monte_carlo_option_price(generated_paths_transformed, K, T, r,option_type="put")
-print(f"Monte Carlo Call Option Price: {call_price_mc:.4f}")
-print(f"Black-Scholes Call Option Price: {call_price_bs:.4f}")
+
+# Compute call option prices at each time step
+call_prices_mc = monte_carlo_option_price(paths, K, T, r, N, option_type="call")
+call_prices_diffusion = monte_carlo_option_price(generated_paths_transformed, K, T, r, N, option_type="call")
+call_prices_spiking_diffusion = monte_carlo_option_price(spiking_generated_paths_transformed, K, T, r, N, option_type="call")
+call_prices_bs = black_scholes_price(S0, K, T, r, sigma, n_timesteps=N, option_type="call")
+
+# Plot results
+plt.figure(figsize=(10, 6))
+plt.plot(t, call_prices_mc, label="Monte Carlo Call Price", color="blue", linestyle="--")
+plt.plot(t, call_prices_diffusion, label="Monte Carlo Call Price - diffusion", color="yellow", linestyle="--")
+plt.plot(t, call_prices_spiking_diffusion, label="Monte Carlo Call Price - spiking diffusion", color="green", linestyle="--")
+plt.plot(t, call_prices_bs, label="Black-Scholes Call Price", color="red", linestyle="-")
+plt.title("European Call Option Price at Each Time Step")
+plt.xlabel("Time (t)")
+plt.ylabel("Option Price")
+plt.legend()
+plt.grid(True)
+# plt.show()
+plt.savefig(f'call_prices_mu={r}_sigma={sigma}_K={K}.pdf')
+plt.close()
+
+# Compute put option prices at each time step
+put_prices_mc = monte_carlo_option_price(paths, K, T, r, N, option_type="put")
+put_prices_diffusion = monte_carlo_option_price(generated_paths_transformed, K, T, r, N, option_type="put")
+put_prices_spiking_diffusion = monte_carlo_option_price(spiking_generated_paths_transformed, K, T, r, N, option_type="put")
+put_prices_bs = black_scholes_price(S0, K, T, r, sigma, n_timesteps=N, option_type="put")
+
+# Plot results
+plt.figure(figsize=(10, 6))
+plt.plot(t, put_prices_mc, label="Monte Carlo put Price", color="blue", linestyle="--")
+plt.plot(t, put_prices_diffusion, label="Monte Carlo put Price - diffusion", color="yellow", linestyle="--")
+plt.plot(t, put_prices_spiking_diffusion, label="Monte Carlo put Price - spiking diffusion", color="green", linestyle="--")
+plt.plot(t, put_prices_bs, label="Black-Scholes put Price", color="red", linestyle="-")
+plt.title("European put Option Price at Each Time Step")
+plt.xlabel("Time (t)")
+plt.ylabel("Option Price")
+plt.legend()
+plt.grid(True)
+# plt.show()
+plt.savefig(f'put_prices_mu={r}_sigma={sigma}_K={K}.pdf')
+plt.close()
