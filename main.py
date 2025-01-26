@@ -181,9 +181,9 @@ spiking_diffusion, spiking_losses = train_diffusion_model(dataset=dataset, n_epo
 torch.save(spiking_diffusion.model.state_dict(), f"./parameters/spiking_timeseries_unet_mu={r}_sigma={sigma}_t={T}")
 
 # Generate paths
-generated_paths = diffusion.sample(n_samples = 10000, device=device)
+generated_paths = diffusion.sample(n_samples = M, batch_size= 100, device=device)
 generated_paths_transformed = dataset.inverse_transform(generated_paths).squeeze(1)
-spiking_generated_paths = spiking_diffusion.sample(n_samples = 10000, device=device)
+spiking_generated_paths = spiking_diffusion.sample(n_samples = M, batch_size= 100, device=device)
 spiking_generated_paths_transformed = dataset.inverse_transform(spiking_generated_paths).squeeze(1)
 
 
