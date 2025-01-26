@@ -72,7 +72,7 @@ class SpikingDiffusionModel:
             samples.append(x.detach().cpu())  # Move to CPU to free GPU memory
             
             # Clear GPU cache
-            # torch.cuda.empty_cache()
+            torch.cuda.empty_cache()
         
         # Concatenate all batches into a single tensor
         return torch.cat(samples, dim=0).to(device)  # Move back to GPU if needed
@@ -95,7 +95,7 @@ class SpikingDiffusionModel:
         optimizer.zero_grad()
         loss.backward()
 
-        torch.nn.utils.clip_grad_norm(self.model.parameters(), 1)
+        # torch.nn.utils.clip_grad_norm(self.model.parameters(), 1)
         optimizer.step()
         functional.reset_net(self.model)
         
@@ -168,7 +168,7 @@ class DiffusionModel:
             samples.append(x.detach().cpu())  # Move to CPU to free GPU memory
             
             # Clear GPU cache
-            # torch.cuda.empty_cache()
+            torch.cuda.empty_cache()
         # Concatenate all batches into a single tensor
         return torch.cat(samples, dim=0)  # Move back to GPU if needed
     
