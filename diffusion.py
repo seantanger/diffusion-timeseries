@@ -95,7 +95,7 @@ class SpikingDiffusionModel:
         optimizer.zero_grad()
         loss.backward()
 
-        torch.nn.utils.clip_grad_norm(self.model.parameters(), 1)
+        # torch.nn.utils.clip_grad_norm(self.model.parameters(), 1)
         optimizer.step()
         functional.reset_net(self.model)
         
@@ -151,24 +151,24 @@ class DiffusionModel:
         
         # Calculate the number of batches
         n_batches = (n_samples + batch_size - 1) // batch_size
-        with torch.no_grad():
-            for i in range(n_batches):
-                # Determine the size of the current batch
-                current_batch_size = min(batch_size, n_samples - i * batch_size)
-                
-                # Generate noise for the current batch
-                x = torch.randn(current_batch_size, 1, self.sequence_length, device=device)
-                
-                # Reverse diffusion process for the current batch
-                for t in range(self.n_steps - 1, -1, -1):
-                    t_batch = torch.full((current_batch_size,), t, device=device, dtype=torch.long)
-                    x = self.p_sample(x, t_batch)
-                
-                # Append the generated samples to the list
-                samples.append(x.detach().cpu())  # Move to CPU to free GPU memory
-                
-                # Clear GPU cache
-                # torch.cuda.empty_cache()
+        
+        for i in range(n_batches):
+            # Determine the size of the current batch
+            current_batch_size = min(batch_size, n_samples - i * batch_size)
+            
+            # Generate noise for the current batch
+            x = torch.randn(current_batch_size, 1, self.sequence_length, device=device)
+            
+            # Reverse diffusion process for the current batch
+            for t in range(self.n_steps - 1, -1, -1):
+                t_batch = torch.full((current_batch_size,), t, device=device, dtype=torch.long)
+                x = self.p_sample(x, t_batch)
+            
+            # Append the generated samples to the list
+            samples.append(x.detach().cpu())  # Move to CPU to free GPU memory
+            
+            # Clear GPU cache
+            # torch.cuda.empty_cache()
         # Concatenate all batches into a single tensor
         return torch.cat(samples, dim=0)  # Move back to GPU if needed
     
