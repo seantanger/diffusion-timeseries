@@ -95,7 +95,7 @@ class SpikingDiffusionModel:
         optimizer.zero_grad()
         loss.backward()
 
-        # torch.nn.utils.clip_grad_norm(self.model.parameters(), 1)
+        torch.nn.utils.clip_grad_norm(self.model.parameters(), 1)
         optimizer.step()
         functional.reset_net(self.model)
         
