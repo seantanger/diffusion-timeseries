@@ -175,15 +175,15 @@ paths = dataset.inverse_transform(paths).squeeze(1)
 
 
 # Train diffusion models
-diffusion, losses = train_diffusion_model(dataset=dataset, n_epochs=25, batch_size=32, device=device, spiking=False)
+diffusion, losses = train_diffusion_model(dataset=dataset, n_epochs=50, batch_size=32, device=device, spiking=False)
 torch.save(diffusion.model.state_dict(), f"./parameters/timeseries_unet_mu={r}_sigma={sigma}_t={T}")
-spiking_diffusion, spiking_losses = train_diffusion_model(dataset=dataset, n_epochs=25, batch_size=16, device=device, spiking=True)
+spiking_diffusion, spiking_losses = train_diffusion_model(dataset=dataset, n_epochs=50, batch_size=32, device=device, spiking=True)
 torch.save(spiking_diffusion.model.state_dict(), f"./parameters/spiking_timeseries_unet_mu={r}_sigma={sigma}_t={T}")
 
 # Generate paths
-generated_paths = diffusion.sample(n_samples = M, batch_size= 100, device=device)
+generated_paths = diffusion.sample(n_samples = M, batch_size= 32, device=device)
 generated_paths_transformed = dataset.inverse_transform(generated_paths).squeeze(1)
-spiking_generated_paths = spiking_diffusion.sample(n_samples = M, batch_size= 100, device=device)
+spiking_generated_paths = spiking_diffusion.sample(n_samples = M, batch_size= 32, device=device)
 spiking_generated_paths_transformed = dataset.inverse_transform(spiking_generated_paths).squeeze(1)
 
 # Compute call option prices at each time step
@@ -236,21 +236,21 @@ plt.close()
 fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 15))
 
 # Plot original GBM paths
-ax1.plot(t, paths.T, color="blue", alpha=0.1)  # Transpose paths to (M, N)
+ax1.plot(t, paths.T, color="blue", alpha=0.1, lwd=1)  # Transpose paths to (M, N)
 ax1.set_title("Original GBM Paths")
 ax1.set_xlabel("Time (t)")
 ax1.set_ylabel("Price")
 ax1.grid(True)
 
 # Plot diffusion-generated paths
-ax2.plot(t, generated_paths_transformed.T, color="green", alpha=0.1)  # Transpose paths to (M, N)
+ax2.plot(t, generated_paths_transformed.T, color="green", alpha=0.1, lwd=1)  # Transpose paths to (M, N)
 ax2.set_title("Diffusion-Generated Paths")
 ax2.set_xlabel("Time (t)")
 ax2.set_ylabel("Price")
 ax2.grid(True)
 
 # Plot spiking diffusion-generated paths
-ax3.plot(t, spiking_generated_paths_transformed.T, color="red", alpha=0.1)  # Transpose paths to (M, N)
+ax3.plot(t, spiking_generated_paths_transformed.T, color="red", alpha=0.1, lwd=1)  # Transpose paths to (M, N)
 ax3.set_title("Spiking Diffusion-Generated Paths")
 ax3.set_xlabel("Time (t)")
 ax3.set_ylabel("Price")
