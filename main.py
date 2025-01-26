@@ -186,27 +186,11 @@ generated_paths_transformed = dataset.inverse_transform(generated_paths).squeeze
 spiking_generated_paths = spiking_diffusion.sample(n_samples = M, batch_size= 100, device=device)
 spiking_generated_paths_transformed = dataset.inverse_transform(spiking_generated_paths).squeeze(1)
 
-
 # Compute call option prices at each time step
 call_prices_mc = monte_carlo_option_price(paths, K, T, r, N, option_type="call")
 call_prices_diffusion = monte_carlo_option_price(generated_paths_transformed, K, T, r, N, option_type="call")
 call_prices_spiking_diffusion = monte_carlo_option_price(spiking_generated_paths_transformed, K, T, r, N, option_type="call")
 call_prices_bs = black_scholes_price(S0, K, T, r, sigma, n_timesteps=N, option_type="call")
-
-# Plot results
-plt.figure(figsize=(10, 6))
-plt.plot(t, call_prices_mc, label="Monte Carlo Call Price", color="blue", linestyle="--")
-plt.plot(t, call_prices_diffusion, label="Monte Carlo Call Price - diffusion", color="yellow", linestyle="--")
-plt.plot(t, call_prices_spiking_diffusion, label="Monte Carlo Call Price - spiking diffusion", color="green", linestyle="--")
-plt.plot(t, call_prices_bs, label="Black-Scholes Call Price", color="red", linestyle="-")
-plt.title("European Call Option Price at Each Time Step")
-plt.xlabel("Time (t)")
-plt.ylabel("Option Price")
-plt.legend()
-plt.grid(True)
-# plt.show()
-plt.savefig(f'call_prices_mu={r}_sigma={sigma}_K={K}.pdf')
-plt.close()
 
 # Compute put option prices at each time step
 put_prices_mc = monte_carlo_option_price(paths, K, T, r, N, option_type="put")
@@ -214,17 +198,69 @@ put_prices_diffusion = monte_carlo_option_price(generated_paths_transformed, K, 
 put_prices_spiking_diffusion = monte_carlo_option_price(spiking_generated_paths_transformed, K, T, r, N, option_type="put")
 put_prices_bs = black_scholes_price(S0, K, T, r, sigma, n_timesteps=N, option_type="put")
 
-# Plot results
-plt.figure(figsize=(10, 6))
-plt.plot(t, put_prices_mc, label="Monte Carlo put Price", color="blue", linestyle="--")
-plt.plot(t, put_prices_diffusion, label="Monte Carlo put Price - diffusion", color="yellow", linestyle="--")
-plt.plot(t, put_prices_spiking_diffusion, label="Monte Carlo put Price - spiking diffusion", color="green", linestyle="--")
-plt.plot(t, put_prices_bs, label="Black-Scholes put Price", color="red", linestyle="-")
-plt.title("European put Option Price at Each Time Step")
-plt.xlabel("Time (t)")
-plt.ylabel("Option Price")
-plt.legend()
-plt.grid(True)
+# Plot: Create a figure with two subplots
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12))
+
+# Plot call option prices
+ax1.plot(t, call_prices_mc, label="Monte Carlo Call Price", color="blue", linestyle="--")
+ax1.plot(t, call_prices_diffusion, label="Monte Carlo Call Price - diffusion", color="yellow", linestyle="--")
+ax1.plot(t, call_prices_spiking_diffusion, label="Monte Carlo Call Price - spiking diffusion", color="green", linestyle="--")
+ax1.plot(t, call_prices_bs, label="Black-Scholes Call Price", color="red", linestyle="-")
+ax1.set_title("European Call Option Price at Each Time Step")
+ax1.set_xlabel("Time (t)")
+ax1.set_ylabel("Option Price")
+ax1.legend()
+ax1.grid(True)
+
+# Plot put option prices
+ax2.plot(t, put_prices_mc, label="Monte Carlo Put Price", color="blue", linestyle="--")
+ax2.plot(t, put_prices_diffusion, label="Monte Carlo Put Price - diffusion", color="yellow", linestyle="--")
+ax2.plot(t, put_prices_spiking_diffusion, label="Monte Carlo Put Price - spiking diffusion", color="green", linestyle="--")
+ax2.plot(t, put_prices_bs, label="Black-Scholes Put Price", color="red", linestyle="-")
+ax2.set_title("European Put Option Price at Each Time Step")
+ax2.set_xlabel("Time (t)")
+ax2.set_ylabel("Option Price")
+ax2.legend()
+ax2.grid(True)
+
+# Adjust layout to prevent overlap
+plt.tight_layout()
 # plt.show()
-plt.savefig(f'put_prices_mu={r}_sigma={sigma}_K={K}.pdf')
+# Save the combined plot
+plt.savefig(f'combined_prices_mu={r}_sigma={sigma}_K={K}.pdf')
+# Close the figure to free up memory
+plt.close()
+
+
+# Compare the 3 methods: Create a figure with three subplots
+fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 15))
+
+# Plot original GBM paths
+ax1.plot(t, paths.T, color="blue", alpha=0.1)  # Transpose paths to (M, N)
+ax1.set_title("Original GBM Paths")
+ax1.set_xlabel("Time (t)")
+ax1.set_ylabel("Price")
+ax1.grid(True)
+
+# Plot diffusion-generated paths
+ax2.plot(t, generated_paths_transformed.T, color="green", alpha=0.1)  # Transpose paths to (M, N)
+ax2.set_title("Diffusion-Generated Paths")
+ax2.set_xlabel("Time (t)")
+ax2.set_ylabel("Price")
+ax2.grid(True)
+
+# Plot spiking diffusion-generated paths
+ax3.plot(t, spiking_generated_paths_transformed.T, color="red", alpha=0.1)  # Transpose paths to (M, N)
+ax3.set_title("Spiking Diffusion-Generated Paths")
+ax3.set_xlabel("Time (t)")
+ax3.set_ylabel("Price")
+ax3.grid(True)
+
+# Adjust layout to prevent overlap
+plt.tight_layout()
+
+# Save the combined plot
+plt.savefig(f'generated_paths_mu={r}_sigma={sigma}_K={K}.pdf')
+
+# Close the figure to free up memory
 plt.close()
