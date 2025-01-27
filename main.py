@@ -236,21 +236,21 @@ plt.close()
 fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 15))
 
 # Plot original GBM paths
-ax1.plot(t, paths.T, color="blue", alpha=0.1, lwd=1)  # Transpose paths to (M, N)
+ax1.plot(t, paths.T, lw=1)  # Transpose paths to (M, N)
 ax1.set_title("Original GBM Paths")
 ax1.set_xlabel("Time (t)")
 ax1.set_ylabel("Price")
 ax1.grid(True)
 
 # Plot diffusion-generated paths
-ax2.plot(t, generated_paths_transformed.T, color="green", alpha=0.1, lwd=1)  # Transpose paths to (M, N)
+ax2.plot(t, generated_paths_transformed.T, lw=1)  # Transpose paths to (M, N)
 ax2.set_title("Diffusion-Generated Paths")
 ax2.set_xlabel("Time (t)")
 ax2.set_ylabel("Price")
 ax2.grid(True)
 
 # Plot spiking diffusion-generated paths
-ax3.plot(t, spiking_generated_paths_transformed.T, color="red", alpha=0.1, lwd=1)  # Transpose paths to (M, N)
+ax3.plot(t, spiking_generated_paths_transformed.T, lw=1)  # Transpose paths to (M, N)
 ax3.set_title("Spiking Diffusion-Generated Paths")
 ax3.set_xlabel("Time (t)")
 ax3.set_ylabel("Price")
