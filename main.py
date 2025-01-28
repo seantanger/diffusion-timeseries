@@ -168,16 +168,18 @@ sigma = 0.2    # Volatility
 M = 10000    # Number of paths (large for convergence)
 N = 127 # sequence length
 t = np.linspace(0, T, N+1)  # Time array
+batch_size=32
+sbatch_size=16
 
-dataset  =GBMDataset(n_samples=M, sequence_length=N, S0=S0, mu=r, sigma=sigma, T=T)
+dataset = GBMDataset(n_samples=M, sequence_length=N, S0=S0, mu=r, sigma=sigma, T=T)
 paths = dataset.data
 paths = dataset.inverse_transform(paths).squeeze(1)
 
 
 # Train diffusion models
-diffusion, losses = train_diffusion_model(dataset=dataset, n_epochs=50, batch_size=32, device=device, spiking=False)
+diffusion, losses = train_diffusion_model(dataset=dataset, n_epochs=30, batch_size=batch_size, device=device, spiking=False)
 torch.save(diffusion.model.state_dict(), f"./parameters/timeseries_unet_mu={r}_sigma={sigma}_t={T}")
-spiking_diffusion, spiking_losses = train_diffusion_model(dataset=dataset, n_epochs=50, batch_size=16, device=device, spiking=True)
+spiking_diffusion, spiking_losses = train_diffusion_model(dataset=dataset, n_epochs=30, batch_size=sbatch_size, device=device, spiking=True)
 torch.save(spiking_diffusion.model.state_dict(), f"./parameters/spiking_timeseries_unet_mu={r}_sigma={sigma}_t={T}")
 
 # Generate paths
