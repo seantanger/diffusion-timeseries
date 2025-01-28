@@ -101,7 +101,7 @@ def black_scholes_price(S0, K, T, r, sigma, n_timesteps, option_type="call"):
     t          : Time array (N+1 array)
     option_prices : Black-Scholes option prices at each time step (N+1 array)
     """
-    t = np.linspace(0, T, N+1)  # Time array
+    t = np.linspace(0, T, n_timesteps+1)  # Time array
 
     # Time to maturity at each time step
     time_to_maturity = T - t  # Shape: (N+1,)
@@ -177,7 +177,7 @@ paths = dataset.inverse_transform(paths).squeeze(1)
 # Train diffusion models
 diffusion, losses = train_diffusion_model(dataset=dataset, n_epochs=50, batch_size=32, device=device, spiking=False)
 torch.save(diffusion.model.state_dict(), f"./parameters/timeseries_unet_mu={r}_sigma={sigma}_t={T}")
-spiking_diffusion, spiking_losses = train_diffusion_model(dataset=dataset, n_epochs=50, batch_size=32, device=device, spiking=True)
+spiking_diffusion, spiking_losses = train_diffusion_model(dataset=dataset, n_epochs=50, batch_size=16, device=device, spiking=True)
 torch.save(spiking_diffusion.model.state_dict(), f"./parameters/spiking_timeseries_unet_mu={r}_sigma={sigma}_t={T}")
 
 # Generate paths
