@@ -169,7 +169,7 @@ M = 10000    # Number of paths (large for convergence)
 N = 127 # sequence length
 t = np.linspace(0, T, N+1)  # Time array
 batch_size=32
-sbatch_size=32
+sbatch_size=16
 
 dataset = GBMDataset(n_samples=M, sequence_length=N, S0=S0, mu=r, sigma=sigma, T=T)
 paths = dataset.data
