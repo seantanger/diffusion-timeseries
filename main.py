@@ -104,7 +104,7 @@ def black_scholes_price(S0, K, T, r, sigma, n_timesteps, option_type="call"):
     t = np.linspace(0, T, n_timesteps+1)  # Time array
 
     # Time to maturity at each time step
-    time_to_maturity = T - t  # Shape: (N+1,)
+    time_to_maturity = t  # Shape: (N+1,)
 
     # Compute d1 and d2 for all time steps
     with np.errstate(divide='ignore', invalid='ignore'):
@@ -131,7 +131,7 @@ def black_scholes_price(S0, K, T, r, sigma, n_timesteps, option_type="call"):
 
     return option_prices
 
-def train_diffusion_model(dataset, n_epochs, batch_size, device, spiking):
+def train_diffusion_model(dataset, n_epochs, lr, batch_size, device, spiking):
     # Create dataset
     sequence_length = 127
     # dataset = GBMDataset(10000, sequence_length)
@@ -143,7 +143,7 @@ def train_diffusion_model(dataset, n_epochs, batch_size, device, spiking):
     else:
         diffusion = DiffusionModel(sequence_length=sequence_length+1, device=device)
     diffusion.model.to(device)
-    optimizer = torch.optim.Adam(diffusion.model.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(diffusion.model.parameters(), lr=lr)
     losses = []
     # Training loop
     for epoch in range(n_epochs):
@@ -169,7 +169,7 @@ M = 10000    # Number of paths (large for convergence)
 N = 127 # sequence length
 t = np.linspace(0, T, N+1)  # Time array
 batch_size=32
-sbatch_size=16
+sbatch_size=32
 
 dataset = GBMDataset(n_samples=M, sequence_length=N, S0=S0, mu=r, sigma=sigma, T=T)
 paths = dataset.data
@@ -177,13 +177,13 @@ paths = dataset.inverse_transform(paths).squeeze(1)
 
 
 # Train diffusion models
-diffusion, losses = train_diffusion_model(dataset=dataset, n_epochs=30, batch_size=batch_size, device=device, spiking=False)
+diffusion, losses = train_diffusion_model(dataset=dataset, n_epochs=30, lr=1e-4, batch_size=batch_size, device=device, spiking=False)
 torch.save(diffusion.model.state_dict(), f"./parameters/timeseries_unet_mu={r}_sigma={sigma}_t={T}")
-spiking_diffusion, spiking_losses = train_diffusion_model(dataset=dataset, n_epochs=30, batch_size=sbatch_size, device=device, spiking=True)
+spiking_diffusion, spiking_losses = train_diffusion_model(dataset=dataset, n_epochs=30, lr=1e-5, batch_size=sbatch_size, device=device, spiking=True)
 torch.save(spiking_diffusion.model.state_dict(), f"./parameters/spiking_timeseries_unet_mu={r}_sigma={sigma}_t={T}")
 
 # Generate paths
-generated_paths = diffusion.sample(n_samples = M, batch_size= 32, device=device)
+generated_paths = diffusion.sample(n_samples = M, batch_size = 32, device=device)
 generated_paths_transformed = dataset.inverse_transform(generated_paths).squeeze(1)
 spiking_generated_paths = spiking_diffusion.sample(n_samples = M, batch_size= 32, device=device)
 spiking_generated_paths_transformed = dataset.inverse_transform(spiking_generated_paths).squeeze(1)
