@@ -8,6 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
 import scipy.stats as stats
 from diffusion import DiffusionModel, SpikingDiffusionModel
+from metrics import plot_metrics_comparison, black_scholes_price, monte_carlo_option_price
 # from syops import get_model_complexity_info
 
 
@@ -47,89 +48,6 @@ class GBMDataset(Dataset):
             scaled_data = scaled_data.cpu().numpy()
         return self.scaler.inverse_transform(scaled_data.reshape(-1, 1)).reshape(scaled_data.shape)
     
-def monte_carlo_option_price(paths, K, T, r, n_timesteps, option_type="call"):
-    """
-    Compute the price of a European option using Monte Carlo simulation.
-
-    Parameters:
-    S0         : Initial price
-    K          : Strike price
-    T          : Time to maturity
-    r          : Risk-free rate
-    sigma      : Volatility
-    M          : Number of paths
-    option_type: "call" or "put"
-
-    Returns:
-    option_price : Estimated option price
-    """
-    t = np.linspace(0, T, n_timesteps+1)  # Time array
-    # Time to maturity at each time step
-
-    time_to_maturity = T - t  # Shape: (N+1,)
-
-    # Compute payoffs at each time step
-    if option_type == "call":
-        payoffs = np.maximum(paths - K, 0)  # Shape: (M, N+1)
-    elif option_type == "put":
-        payoffs = np.maximum(K - paths, 0)  # Shape: (M, N+1)
-    else:
-        raise ValueError("option_type must be 'call' or 'put'")
-
-    # Discount payoffs to present value
-    discount_factors = np.exp(-r * time_to_maturity)  # Shape: (N+1,)
-    discounted_payoffs = payoffs * discount_factors  # Shape: (M, N+1)
-
-    # Compute option price as the average of discounted payoffs
-    option_prices = np.mean(discounted_payoffs, axis=0)  # Shape: (N+1,)
-
-    return option_prices
-
-def black_scholes_price(S0, K, T, r, sigma, n_timesteps, option_type="call"):
-    """
-    Compute the Black-Scholes price of a European option at each time step.
-
-    Parameters:
-    S0         : Initial price
-    K          : Strike price
-    T          : Time to maturity
-    r          : Risk-free rate
-    sigma      : Volatility
-    option_type: "call" or "put"
-
-    Returns:
-    t          : Time array (N+1 array)
-    option_prices : Black-Scholes option prices at each time step (N+1 array)
-    """
-    t = np.linspace(0, T, n_timesteps+1)  # Time array
-
-    # Time to maturity at each time step
-    time_to_maturity = t  # Shape: (N+1,)
-
-    # Compute d1 and d2 for all time steps
-    with np.errstate(divide='ignore', invalid='ignore'):
-        d1 = (np.log(S0 / K) + (r + 0.5 * sigma**2) * time_to_maturity) / (sigma * np.sqrt(time_to_maturity))
-        d2 = d1 - sigma * np.sqrt(time_to_maturity)
-
-    # Handle the case at maturity (t = T)
-    d1[-1] = np.inf if S0 > K else -np.inf
-    d2[-1] = np.inf if S0 > K else -np.inf
-
-    # Compute option prices at each time step
-    if option_type == "call":
-        option_prices = S0 * stats.norm.cdf(d1) - K * np.exp(-r * time_to_maturity) * stats.norm.cdf(d2)
-    elif option_type == "put":
-        option_prices = K * np.exp(-r * time_to_maturity) * stats.norm.cdf(-d2) - S0 * stats.norm.cdf(-d1)
-    else:
-        raise ValueError("option_type must be 'call' or 'put'")
-
-    # At maturity, the option price is the payoff
-    if option_type == "call":
-        option_prices[-1] = max(S0 - K, 0)
-    elif option_type == "put":
-        option_prices[-1] = max(K - S0, 0)
-
-    return option_prices
 
 def train_diffusion_model(dataset, n_epochs, lr, batch_size, device, spiking):
     # Create dataset
@@ -267,3 +185,6 @@ plt.savefig(f'generated_paths_mu={r}_sigma={sigma}_K={K}.pdf')
 
 # Close the figure to free up memory
 plt.close()
+
+diffusion_metrics = plot_metrics_comparison(real_paths = paths, generated_paths = generated_paths_transformed)
+spiking_metrics = plot_metrics_comparison(real_paths = paths, generated_paths = spiking_generated_paths_transformed)
