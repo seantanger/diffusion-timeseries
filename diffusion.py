@@ -41,7 +41,8 @@ class SpikingDiffusionModel:
         
         # No noise if t == 0
         noise = torch.randn_like(x_t) if t[0] > 0 else 0
-        
+        functional.reset_net(self.model)
+
         return (
             1 / (1 - betas_t).sqrt() * (
                 x_t - betas_t / sqrt_one_minus_alphas_cumprod_t * predicted_noise
@@ -67,7 +68,6 @@ class SpikingDiffusionModel:
                 for t in range(self.n_steps - 1, -1, -1):
                     t_batch = torch.full((current_batch_size,), t, device=device, dtype=torch.long)
                     x = self.p_sample(x, t_batch)
-                    functional.reset_net(self.model)
                 # Append the generated samples to the list
                 samples.append(x.detach().cpu())  # Move to CPU to free GPU memory
                 
@@ -95,7 +95,7 @@ class SpikingDiffusionModel:
         optimizer.zero_grad()
         loss.backward()
 
-        torch.nn.utils.clip_grad_norm(self.model.parameters(), 1)
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
         optimizer.step()
         functional.reset_net(self.model)
         

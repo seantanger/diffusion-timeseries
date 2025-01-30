@@ -169,7 +169,7 @@ M = 10000    # Number of paths (large for convergence)
 N = 127 # sequence length
 t = np.linspace(0, T, N+1)  # Time array
 batch_size=32
-sbatch_size=16
+sbatch_size=8
 
 dataset = GBMDataset(n_samples=M, sequence_length=N, S0=S0, mu=r, sigma=sigma, T=T)
 paths = dataset.data
@@ -179,13 +179,13 @@ paths = dataset.inverse_transform(paths).squeeze(1)
 # Train diffusion models
 diffusion, losses = train_diffusion_model(dataset=dataset, n_epochs=30, lr=1e-4, batch_size=batch_size, device=device, spiking=False)
 torch.save(diffusion.model.state_dict(), f"./parameters/timeseries_unet_mu={r}_sigma={sigma}_t={T}")
-spiking_diffusion, spiking_losses = train_diffusion_model(dataset=dataset, n_epochs=30, lr=1e-5, batch_size=sbatch_size, device=device, spiking=True)
+spiking_diffusion, spiking_losses = train_diffusion_model(dataset=dataset, n_epochs=50, lr=1e-4, batch_size=sbatch_size, device=device, spiking=True)
 torch.save(spiking_diffusion.model.state_dict(), f"./parameters/spiking_timeseries_unet_mu={r}_sigma={sigma}_t={T}")
 
 # Generate paths
-generated_paths = diffusion.sample(n_samples = M, batch_size = 32, device=device)
+generated_paths = diffusion.sample(n_samples = M, batch_size = 100, device=device)
 generated_paths_transformed = dataset.inverse_transform(generated_paths).squeeze(1)
-spiking_generated_paths = spiking_diffusion.sample(n_samples = M, batch_size= 32, device=device)
+spiking_generated_paths = spiking_diffusion.sample(n_samples = M, batch_size= 100, device=device)
 spiking_generated_paths_transformed = dataset.inverse_transform(spiking_generated_paths).squeeze(1)
 
 # Compute call option prices at each time step
@@ -256,6 +256,7 @@ ax3.plot(t, spiking_generated_paths_transformed.T, lw=1)  # Transpose paths to (
 ax3.set_title("Spiking Diffusion-Generated Paths")
 ax3.set_xlabel("Time (t)")
 ax3.set_ylabel("Price")
+ax3.set_ylim([0, 500])
 ax3.grid(True)
 
 # Adjust layout to prevent overlap
