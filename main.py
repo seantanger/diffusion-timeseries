@@ -174,7 +174,6 @@ ax3.plot(t, spiking_generated_paths_transformed.T, lw=1)  # Transpose paths to (
 ax3.set_title("Spiking Diffusion-Generated Paths")
 ax3.set_xlabel("Time (t)")
 ax3.set_ylabel("Price")
-ax3.set_ylim([0, 500])
 ax3.grid(True)
 
 # Adjust layout to prevent overlap
@@ -186,5 +185,8 @@ plt.savefig(f'generated_paths_mu={r}_sigma={sigma}_K={K}.pdf')
 # Close the figure to free up memory
 plt.close()
 
-diffusion_metrics = plot_metrics_comparison(real_paths = paths, generated_paths = generated_paths_transformed)
-spiking_metrics = plot_metrics_comparison(real_paths = paths, generated_paths = spiking_generated_paths_transformed)
+title = f'metrics_mu={r}_sigma={sigma}_K={K}'
+diffusion_metrics = plot_metrics_comparison(real_paths = paths, generated_paths = generated_paths_transformed, title = title)
+
+title = f'spiking_metrics_mu={r}_sigma={sigma}_K={K}'
+spiking_metrics = plot_metrics_comparison(real_paths = paths, generated_paths = spiking_generated_paths_transformed, title = title)

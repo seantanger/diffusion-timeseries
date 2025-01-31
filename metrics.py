@@ -56,7 +56,7 @@ class TimeSeriesMetrics:
         
         return metrics
 
-def plot_metrics_comparison(real_paths, generated_paths):
+def plot_metrics_comparison(real_paths, generated_paths, title):
     """Plot detailed comparison of real and generated paths"""
     real_paths_orig = real_paths
     generated_paths_orig = generated_paths
@@ -94,6 +94,8 @@ def plot_metrics_comparison(real_paths, generated_paths):
     plt.title('Q-Q Plot (Generated Returns)')
     
     plt.tight_layout()
+    plt.savefig(f'{title}.pdf')
+    plt.close()
     
     # Print metrics
     print("\nStatistical Metrics Comparison:")
