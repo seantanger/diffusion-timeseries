@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
 import scipy.stats as stats
 from diffusion import DiffusionModel, SpikingDiffusionModel
-from metrics import plot_metrics_comparison, black_scholes_price, monte_carlo_option_price
+from metrics import plot_metrics_comparison, black_scholes_price, monte_carlo_option_price, plot_paths_and_prices
 # from syops import get_model_complexity_info
 
 
@@ -57,9 +57,9 @@ def train_diffusion_model(dataset, n_epochs, lr, batch_size, device, spiking):
     
     # Initialize model
     if spiking:
-        diffusion = SpikingDiffusionModel(sequence_length=sequence_length+1, device=device)
+        diffusion = SpikingDiffusionModel(n_steps=2000, sequence_length=sequence_length+1, device=device)
     else:
-        diffusion = DiffusionModel(sequence_length=sequence_length+1, device=device)
+        diffusion = DiffusionModel(n_steps=2000, sequence_length=sequence_length+1, device=device)
     diffusion.model.to(device)
     optimizer = torch.optim.Adam(diffusion.model.parameters(), lr=lr)
     losses = []
@@ -82,11 +82,11 @@ S0 = 100       # Initial price
 K = 105        # Strike price
 T = 1          # Time to maturity (1 year)
 r = 0.02       # Risk-free rate
-sigma = 0.2    # Volatility
+sigma = 0.1    # Volatility
 M = 10000    # Number of paths (large for convergence)
 N = 127 # sequence length
 t = np.linspace(0, T, N+1)  # Time array
-batch_size=32
+batch_size=16
 sbatch_size=8
 
 dataset = GBMDataset(n_samples=M, sequence_length=N, S0=S0, mu=r, sigma=sigma, T=T)
@@ -95,95 +95,18 @@ paths = dataset.inverse_transform(paths).squeeze(1)
 
 
 # Train diffusion models
-diffusion, losses = train_diffusion_model(dataset=dataset, n_epochs=30, lr=1e-4, batch_size=batch_size, device=device, spiking=False)
+diffusion, losses = train_diffusion_model(dataset=dataset, n_epochs=100, lr=1e-5, batch_size=batch_size, device=device, spiking=False)
 torch.save(diffusion.model.state_dict(), f"./parameters/timeseries_unet_mu={r}_sigma={sigma}_t={T}")
-spiking_diffusion, spiking_losses = train_diffusion_model(dataset=dataset, n_epochs=50, lr=1e-4, batch_size=sbatch_size, device=device, spiking=True)
+spiking_diffusion, spiking_losses = train_diffusion_model(dataset=dataset, n_epochs=100, lr=1e-5, batch_size=sbatch_size, device=device, spiking=True)
 torch.save(spiking_diffusion.model.state_dict(), f"./parameters/spiking_timeseries_unet_mu={r}_sigma={sigma}_t={T}")
 
 # Generate paths
 generated_paths = diffusion.sample(n_samples = M, batch_size = 100, device=device)
 generated_paths_transformed = dataset.inverse_transform(generated_paths).squeeze(1)
-spiking_generated_paths = spiking_diffusion.sample(n_samples = M, batch_size= 100, device=device)
+spiking_generated_paths = spiking_diffusion.sample(n_samples = M, batch_size = 100, device=device)
 spiking_generated_paths_transformed = dataset.inverse_transform(spiking_generated_paths).squeeze(1)
 
-# Compute call option prices at each time step
-call_prices_mc = monte_carlo_option_price(paths, K, T, r, N, option_type="call")
-call_prices_diffusion = monte_carlo_option_price(generated_paths_transformed, K, T, r, N, option_type="call")
-call_prices_spiking_diffusion = monte_carlo_option_price(spiking_generated_paths_transformed, K, T, r, N, option_type="call")
-call_prices_bs = black_scholes_price(S0, K, T, r, sigma, n_timesteps=N, option_type="call")
-
-# Compute put option prices at each time step
-put_prices_mc = monte_carlo_option_price(paths, K, T, r, N, option_type="put")
-put_prices_diffusion = monte_carlo_option_price(generated_paths_transformed, K, T, r, N, option_type="put")
-put_prices_spiking_diffusion = monte_carlo_option_price(spiking_generated_paths_transformed, K, T, r, N, option_type="put")
-put_prices_bs = black_scholes_price(S0, K, T, r, sigma, n_timesteps=N, option_type="put")
-
-# Plot: Create a figure with two subplots
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12))
-
-# Plot call option prices
-ax1.plot(t, call_prices_mc, label="Monte Carlo Call Price", color="blue", linestyle="--")
-ax1.plot(t, call_prices_diffusion, label="Monte Carlo Call Price - diffusion", color="yellow", linestyle="--")
-ax1.plot(t, call_prices_spiking_diffusion, label="Monte Carlo Call Price - spiking diffusion", color="green", linestyle="--")
-ax1.plot(t, call_prices_bs, label="Black-Scholes Call Price", color="red", linestyle="-")
-ax1.set_title("European Call Option Price at Each Time Step")
-ax1.set_xlabel("Time (t)")
-ax1.set_ylabel("Option Price")
-ax1.legend()
-ax1.grid(True)
-
-# Plot put option prices
-ax2.plot(t, put_prices_mc, label="Monte Carlo Put Price", color="blue", linestyle="--")
-ax2.plot(t, put_prices_diffusion, label="Monte Carlo Put Price - diffusion", color="yellow", linestyle="--")
-ax2.plot(t, put_prices_spiking_diffusion, label="Monte Carlo Put Price - spiking diffusion", color="green", linestyle="--")
-ax2.plot(t, put_prices_bs, label="Black-Scholes Put Price", color="red", linestyle="-")
-ax2.set_title("European Put Option Price at Each Time Step")
-ax2.set_xlabel("Time (t)")
-ax2.set_ylabel("Option Price")
-ax2.legend()
-ax2.grid(True)
-
-# Adjust layout to prevent overlap
-plt.tight_layout()
-# plt.show()
-# Save the combined plot
-plt.savefig(f'combined_prices_mu={r}_sigma={sigma}_K={K}.pdf')
-# Close the figure to free up memory
-plt.close()
-
-
-# Compare the 3 methods: Create a figure with three subplots
-fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 15))
-
-# Plot original GBM paths
-ax1.plot(t, paths.T, lw=1)  # Transpose paths to (M, N)
-ax1.set_title("Original GBM Paths")
-ax1.set_xlabel("Time (t)")
-ax1.set_ylabel("Price")
-ax1.grid(True)
-
-# Plot diffusion-generated paths
-ax2.plot(t, generated_paths_transformed.T, lw=1)  # Transpose paths to (M, N)
-ax2.set_title("Diffusion-Generated Paths")
-ax2.set_xlabel("Time (t)")
-ax2.set_ylabel("Price")
-ax2.grid(True)
-
-# Plot spiking diffusion-generated paths
-ax3.plot(t, spiking_generated_paths_transformed.T, lw=1)  # Transpose paths to (M, N)
-ax3.set_title("Spiking Diffusion-Generated Paths")
-ax3.set_xlabel("Time (t)")
-ax3.set_ylabel("Price")
-ax3.grid(True)
-
-# Adjust layout to prevent overlap
-plt.tight_layout()
-
-# Save the combined plot
-plt.savefig(f'generated_paths_mu={r}_sigma={sigma}_K={K}.pdf')
-
-# Close the figure to free up memory
-plt.close()
+plot_paths_and_prices(paths, generated_paths_transformed, spiking_generated_paths_transformed, S0, K, T, r, N, sigma)
 
 title = f'metrics_mu={r}_sigma={sigma}_K={K}'
 diffusion_metrics = plot_metrics_comparison(real_paths = paths, generated_paths = generated_paths_transformed, title = title)

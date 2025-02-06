@@ -94,7 +94,7 @@ def plot_metrics_comparison(real_paths, generated_paths, title):
     plt.title('Q-Q Plot (Generated Returns)')
     
     plt.tight_layout()
-    plt.savefig(f'{title}.pdf')
+    plt.savefig(f'{title}.png')
     plt.close()
     
     # Print metrics
@@ -109,19 +109,6 @@ def plot_metrics_comparison(real_paths, generated_paths, title):
     print(f"P-value = {metrics['ks_test']['p_value']:.6f}")
     
     return metrics
-
-# def evaluate_model(diffusion, dataset, n_samples=100, device="cuda"):
-#     """Evaluate the diffusion model using multiple metrics"""
-#     # Generate samples
-#     with torch.no_grad():
-#         generated = diffusion.sample(n_samples, 100, device)
-    
-#     # Get same number of real samples
-#     real_samples = torch.stack([dataset[i] for i in range(n_samples)])
-    
-#     # Plot and calculate metrics
-#     metrics = plot_metrics_comparison(real_samples, generated, dataset)
-#     return metrics
 
 def monte_carlo_option_price(paths, K, T, r, n_timesteps, option_type="call"):
     """
@@ -142,7 +129,7 @@ def monte_carlo_option_price(paths, K, T, r, n_timesteps, option_type="call"):
     t = np.linspace(0, T, n_timesteps+1)  # Time array
     # Time to maturity at each time step
 
-    time_to_maturity = T - t  # Shape: (N+1,)
+    time_to_maturity = t  # Shape: (N+1,) should be t or T-t
 
     # Compute payoffs at each time step
     if option_type == "call":
@@ -206,3 +193,95 @@ def black_scholes_price(S0, K, T, r, sigma, n_timesteps, option_type="call"):
         option_prices[-1] = max(K - S0, 0)
 
     return option_prices
+
+def plot_paths_and_prices(original_paths, diffusion_paths, spiking_diffusion_paths, S0, K, T, r, N, sigma,):
+    # Compute call option prices at each time step
+    call_prices_mc = monte_carlo_option_price(original_paths, K, T, r, N, option_type="call")
+    call_prices_diffusion = monte_carlo_option_price(diffusion_paths, K, T, r, N, option_type="call")
+    call_prices_spiking_diffusion = monte_carlo_option_price(spiking_diffusion_paths, K, T, r, N, option_type="call")
+    call_prices_bs = black_scholes_price(S0, K, T, r, sigma, n_timesteps=N, option_type="call")
+
+    # Compute put option prices at each time step
+    put_prices_mc = monte_carlo_option_price(original_paths, K, T, r, N, option_type="put")
+    put_prices_diffusion = monte_carlo_option_price(diffusion_paths, K, T, r, N, option_type="put")
+    put_prices_spiking_diffusion = monte_carlo_option_price(spiking_diffusion_paths, K, T, r, N, option_type="put")
+    put_prices_bs = black_scholes_price(S0, K, T, r, sigma, n_timesteps=N, option_type="put")
+
+    # Plot: Create a figure with two subplots
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12))
+    t = np.linspace(0, T, N+1)  # Time array
+    # Plot call option prices
+    ax1.plot(t, call_prices_mc, label="Monte Carlo Call Price", color="blue", linestyle="--")
+    ax1.plot(t, call_prices_diffusion, label="Monte Carlo Call Price - diffusion", color="orange", linestyle="--")
+    ax1.plot(t, call_prices_spiking_diffusion, label="Monte Carlo Call Price - spiking diffusion", color="green", linestyle="--")
+    ax1.plot(t, call_prices_bs, label="Black-Scholes Call Price", color="red", linestyle="-")
+    ax1.set_title("European Call Option Price at Each Time Step")
+    ax1.set_xlabel("Time (t)")
+    ax1.set_ylabel("Option Price")
+    ax1.legend()
+    ax1.grid(True)
+
+    # Plot put option prices
+    ax2.plot(t, put_prices_mc, label="Monte Carlo Put Price", color="blue", linestyle="--")
+    ax2.plot(t, put_prices_diffusion, label="Monte Carlo Put Price - diffusion", color="orange", linestyle="--")
+    ax2.plot(t, put_prices_spiking_diffusion, label="Monte Carlo Put Price - spiking diffusion", color="green", linestyle="--")
+    ax2.plot(t, put_prices_bs, label="Black-Scholes Put Price", color="red", linestyle="-")
+    ax2.set_title("European Put Option Price at Each Time Step")
+    ax2.set_xlabel("Time (t)")
+    ax2.set_ylabel("Option Price")
+    ax2.legend()
+    ax2.grid(True)
+
+    # Adjust layout to prevent overlap
+    plt.tight_layout()
+    # plt.show()
+    # Save the combined plot
+    plt.savefig(f'combined_prices_mu={r}_sigma={sigma}_K={K}.png')
+    # Close the figure to free up memory
+    plt.close()
+
+    # Compare the 3 methods: Create a figure with three subplots
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 15))
+    # Calculate global y-axis limits
+    y_min = min(
+        np.min(original_paths),
+        np.min(diffusion_paths),
+        np.min(spiking_diffusion_paths)
+    )
+    y_max = max(
+        np.max(original_paths),
+        np.max(diffusion_paths),
+        np.max(spiking_diffusion_paths)
+    )
+    # Plot original GBM paths
+    ax1.plot(t, original_paths.T, lw=1)  # Transpose paths to (M, N)
+    ax1.set_title("Original GBM Paths")
+    ax1.set_xlabel("Time (t)")
+    ax1.set_ylabel("Price")
+    ax1.set_ylim(y_min, y_max)  # Set y-axis limits
+    ax1.grid(True)
+
+    # Plot diffusion-generated paths
+    ax2.plot(t, diffusion_paths.T, lw=1)  # Transpose paths to (M, N)
+    ax2.set_title("Diffusion-Generated Paths")
+    ax2.set_xlabel("Time (t)")
+    ax2.set_ylabel("Price")
+    ax2.set_ylim(y_min, y_max)  # Set y-axis limits
+    ax2.grid(True)
+
+    # Plot spiking diffusion-generated paths
+    ax3.plot(t, spiking_diffusion_paths.T, lw=1)  # Transpose paths to (M, N)
+    ax3.set_title("Spiking Diffusion-Generated Paths")
+    ax3.set_xlabel("Time (t)")
+    ax3.set_ylabel("Price")
+    ax3.set_ylim(y_min, y_max)  # Set y-axis limits
+    ax3.grid(True)
+
+    # Adjust layout to prevent overlap
+    plt.tight_layout()
+
+    # Save the combined plot
+    plt.savefig(f'generated_paths_mu={r}_sigma={sigma}_K={K}.png')
+
+    # Close the figure to free up memory
+    plt.close()
