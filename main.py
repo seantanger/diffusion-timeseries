@@ -8,12 +8,53 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
 import scipy.stats as stats
 from diffusion import DiffusionModel, SpikingDiffusionModel
-from metrics import plot_metrics_comparison, black_scholes_price, monte_carlo_option_price, plot_paths_and_prices
+from metrics import plot_metrics_comparison, plot_paths_and_prices, run_multiple_mc
 # from syops import get_model_complexity_info
+from scipy.fftpack import dct, idct
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# class GBMDataset(Dataset):
+#     def __init__(self, n_samples, sequence_length, S0, mu, sigma, T=1):
+#         self.data = []
+#         self.sequence_length = sequence_length
+#         self.n_samples = n_samples
 
+#         # Generate GBM paths
+#         dt = T / sequence_length
+#         t = np.linspace(0, T, sequence_length + 1)
+#         dW = np.random.normal(0, np.sqrt(dt), size=(n_samples, sequence_length))
+#         W = np.cumsum(dW, axis=1)
+#         paths = S0 * np.exp((mu - 0.5 * sigma**2) * t[1:] + sigma * W)
+#         paths = np.hstack([S0 * np.ones((n_samples, 1)), paths])  # Add initial price S0
+#         self.data = np.array(paths)
+
+#         # Apply Discrete Cosine Transform (DCT) to each path
+#         self.dct_data = np.apply_along_axis(dct, axis=1, arr=self.data, norm='ortho')
+
+#         # Convert to PyTorch tensor
+#         self.data = torch.tensor(self.dct_data, dtype=torch.float32)
+#         self.data = self.data.unsqueeze(1)  # Add channel dimension
+
+#     def __len__(self):
+#         return len(self.data)
+
+#     def __getitem__(self, idx):
+#         return self.data[idx]
+
+#     def inverse_transform(self, dct_data):
+#         """Convert DCT-transformed data back to the original scale using Inverse DCT (IDCT)"""
+#         if isinstance(dct_data, torch.Tensor):
+#             dct_data = dct_data.cpu().numpy()
+
+#         # Remove channel dimension if present
+#         if dct_data.ndim == 3:
+#             dct_data = dct_data.squeeze(1)
+
+#         # Apply Inverse DCT
+#         original_data = np.apply_along_axis(idct, axis=1, arr=dct_data, norm='ortho')
+#         return original_data
+    
 class GBMDataset(Dataset):
     def __init__(self, n_samples, sequence_length, S0, mu, sigma, T=1):
         self.data = []
@@ -46,6 +87,9 @@ class GBMDataset(Dataset):
         """Convert scaled data back to original scale"""
         if isinstance(scaled_data, torch.Tensor):
             scaled_data = scaled_data.cpu().numpy()
+        # Remove channel dimension if present
+        if scaled_data.ndim == 3:
+            scaled_data = scaled_data.squeeze(1)
         return self.scaler.inverse_transform(scaled_data.reshape(-1, 1)).reshape(scaled_data.shape)
     
 
@@ -59,7 +103,7 @@ def train_diffusion_model(dataset, n_epochs, lr, batch_size, device, spiking):
     if spiking:
         diffusion = SpikingDiffusionModel(n_steps=2000, sequence_length=sequence_length+1, device=device)
     else:
-        diffusion = DiffusionModel(n_steps=2000, sequence_length=sequence_length+1, device=device)
+        diffusion = DiffusionModel(n_steps=1000, sequence_length=sequence_length+1, device=device)
     diffusion.model.to(device)
     optimizer = torch.optim.Adam(diffusion.model.parameters(), lr=lr)
     losses = []
@@ -91,20 +135,20 @@ sbatch_size=8
 
 dataset = GBMDataset(n_samples=M, sequence_length=N, S0=S0, mu=r, sigma=sigma, T=T)
 paths = dataset.data
-paths = dataset.inverse_transform(paths).squeeze(1)
+paths = dataset.inverse_transform(paths)#.squeeze(1)
 
 
 # Train diffusion models
-diffusion, losses = train_diffusion_model(dataset=dataset, n_epochs=100, lr=1e-5, batch_size=batch_size, device=device, spiking=False)
+diffusion, losses = train_diffusion_model(dataset=dataset, n_epochs=50, lr=1e-4, batch_size=batch_size, device=device, spiking=False)
 torch.save(diffusion.model.state_dict(), f"./parameters/timeseries_unet_mu={r}_sigma={sigma}_t={T}")
-spiking_diffusion, spiking_losses = train_diffusion_model(dataset=dataset, n_epochs=100, lr=1e-5, batch_size=sbatch_size, device=device, spiking=True)
+spiking_diffusion, spiking_losses = train_diffusion_model(dataset=dataset, n_epochs=50, lr=1e-4, batch_size=sbatch_size, device=device, spiking=True)
 torch.save(spiking_diffusion.model.state_dict(), f"./parameters/spiking_timeseries_unet_mu={r}_sigma={sigma}_t={T}")
 
 # Generate paths
 generated_paths = diffusion.sample(n_samples = M, batch_size = 100, device=device)
-generated_paths_transformed = dataset.inverse_transform(generated_paths).squeeze(1)
+generated_paths_transformed = dataset.inverse_transform(generated_paths)#.squeeze(1)
 spiking_generated_paths = spiking_diffusion.sample(n_samples = M, batch_size = 100, device=device)
-spiking_generated_paths_transformed = dataset.inverse_transform(spiking_generated_paths).squeeze(1)
+spiking_generated_paths_transformed = dataset.inverse_transform(spiking_generated_paths)#.squeeze(1)
 
 plot_paths_and_prices(paths, generated_paths_transformed, spiking_generated_paths_transformed, S0, K, T, r, N, sigma)
 
@@ -113,3 +157,5 @@ diffusion_metrics = plot_metrics_comparison(real_paths = paths, generated_paths 
 
 title = f'spiking_metrics_mu={r}_sigma={sigma}_K={K}'
 spiking_metrics = plot_metrics_comparison(real_paths = paths, generated_paths = spiking_generated_paths_transformed, title = title)
+
+run_multiple_mc(dataset, diffusion, spiking_diffusion, S0, K, T, r, N, sigma, 5, device)
