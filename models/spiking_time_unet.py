@@ -41,7 +41,7 @@ class Spike_SelfAttention(nn.Module):
         self.proj_bn = nn.BatchNorm1d(dim)
         # self.proj_lif = MultiStepLIFNode(tau=2.0, detach_reset=True)
         self.proj_lif = IFNode(surrogate_function=surrogate.ATan())
-
+        functional.set_step_mode(self, step_mode='m') # Added this
 
     def forward(self, x):
         T,B,C,N = x.shape
@@ -233,7 +233,7 @@ class Spk_ResBlock(nn.Module):
         for module in self.modules():
             if isinstance(module, (nn.Conv1d, nn.Linear)):
                 init.xavier_uniform_(module.weight)
-                init.zeros_(module.bias)
+                # init.zeros_(module.bias) # Comment this out for attention?
         # init.xavier_uniform_(self.block2[-1].weight, gain=1e-5)
 
     def forward(self, x, temb):
@@ -311,7 +311,7 @@ class Spk_UNet(nn.Module):
                 chs.append(now_ch)
         # print(f'structure:{chs}')
         self.middleblocks = nn.ModuleList([
-            Spk_ResBlock(now_ch, now_ch, tdim, dropout, attn=False),
+            Spk_ResBlock(now_ch, now_ch, tdim, dropout, attn=True),
             Spk_ResBlock(now_ch, now_ch, tdim, dropout, attn=False),
         ])
 

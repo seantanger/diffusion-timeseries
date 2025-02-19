@@ -16,7 +16,7 @@ class SpikingDiffusionModel:
         self.alphas = 1 - self.betas
         self.alphas_cumprod = torch.cumprod(self.alphas, dim=0)
         
-        self.model = spiking_time_unet.Spk_UNet(T=n_steps, ch=128, ch_mult=[1, 2, 2, 4], attn=[8],num_res_blocks=2, dropout=0.1, timestep=4).to(device)
+        self.model = spiking_time_unet.Spk_UNet(T=n_steps, ch=128, ch_mult=[1, 2, 2, 4], attn=[1],num_res_blocks=2, dropout=0.1, timestep=8).to(device)
         # self.model.load_state_dict(torch.load("./models/spiking_unet_noattention_128"))
     
     def q_sample(self, x_0, t):
@@ -113,7 +113,7 @@ class DiffusionModel:
         self.alphas = 1 - self.betas
         self.alphas_cumprod = torch.cumprod(self.alphas, dim=0)
         
-        self.model = timeseries_unet.UNet(T=n_steps, ch=128, ch_mult=[1, 2, 2, 2], attn=[8], num_res_blocks=2, dropout=0.1).to(device)
+        self.model = timeseries_unet.UNet(T=n_steps, ch=128, ch_mult=[1, 2, 2, 2], attn=[1], num_res_blocks=2, dropout=0.1).to(device)
     
     def q_sample(self, x_0, t):
         """Forward diffusion process"""

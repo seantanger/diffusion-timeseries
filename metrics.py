@@ -111,21 +111,6 @@ def plot_metrics_comparison(real_paths, generated_paths, title):
     return metrics
 
 def monte_carlo_option_price(paths, K, T, r, n_timesteps, option_type="call"):
-    """
-    Compute the price of a European option using Monte Carlo simulation.
-
-    Parameters:
-    S0         : Initial price
-    K          : Strike price
-    T          : Time to maturity
-    r          : Risk-free rate
-    sigma      : Volatility
-    M          : Number of paths
-    option_type: "call" or "put"
-
-    Returns:
-    option_price : Estimated option price
-    """
     t = np.linspace(0, T, n_timesteps+1)  # Time array
     # Time to maturity at each time step
 
@@ -194,7 +179,7 @@ def black_scholes_price(S0, K, T, r, sigma, n_timesteps, option_type="call"):
 
     return option_prices
 
-def plot_paths_and_prices(original_paths, diffusion_paths, spiking_diffusion_paths, S0, K, T, r, N, sigma):
+def plot_paths_and_prices(original_paths, diffusion_paths, spiking_diffusion_paths, S0, K, T, r, N, sigma, folder_path):
     # Compute call option prices at each time step
     call_prices_mc = monte_carlo_option_price(original_paths, K, T, r, N, option_type="call")
     call_prices_diffusion = monte_carlo_option_price(diffusion_paths, K, T, r, N, option_type="call")
@@ -218,6 +203,7 @@ def plot_paths_and_prices(original_paths, diffusion_paths, spiking_diffusion_pat
     ax1.set_title("European Call Option Price at Each Time Step")
     ax1.set_xlabel("Time (t)")
     ax1.set_ylabel("Option Price")
+    # ax1.set_ylim(0, 10)
     ax1.legend()
     ax1.grid(True)
 
@@ -229,6 +215,7 @@ def plot_paths_and_prices(original_paths, diffusion_paths, spiking_diffusion_pat
     ax2.set_title("European Put Option Price at Each Time Step")
     ax2.set_xlabel("Time (t)")
     ax2.set_ylabel("Option Price")
+    # ax2.set_ylim(0, 10)
     ax2.legend()
     ax2.grid(True)
 
@@ -236,7 +223,7 @@ def plot_paths_and_prices(original_paths, diffusion_paths, spiking_diffusion_pat
     plt.tight_layout()
     # plt.show()
     # Save the combined plot
-    plt.savefig(f'combined_prices_mu={r}_sigma={sigma}_K={K}.png')
+    plt.savefig(f'{folder_path}/combined_prices_mu={r}_sigma={sigma}_K={K}.png')
     # Close the figure to free up memory
     plt.close()
 
@@ -245,10 +232,12 @@ def plot_paths_and_prices(original_paths, diffusion_paths, spiking_diffusion_pat
     # Calculate global y-axis limits
     y_min = min(
         np.min(original_paths),
-        np.min(diffusion_paths))
+        np.min(diffusion_paths),
+        np.min(spiking_diffusion_paths))
     y_max = max(
         np.max(original_paths),
-        np.max(diffusion_paths))
+        np.max(diffusion_paths),
+        np.max(spiking_diffusion_paths))
     # Plot original GBM paths
     ax1.plot(t, original_paths.T, lw=1)  # Transpose paths to (M, N)
     ax1.set_title("Original GBM Paths")
@@ -277,12 +266,12 @@ def plot_paths_and_prices(original_paths, diffusion_paths, spiking_diffusion_pat
     plt.tight_layout()
 
     # Save the combined plot
-    plt.savefig(f'generated_paths_mu={r}_sigma={sigma}_K={K}.png')
+    plt.savefig(f'{folder_path}/generated_paths_mu={r}_sigma={sigma}_K={K}.png')
 
     # Close the figure to free up memory
     plt.close()
 
-def run_multiple_mc(dataset, diffusion_model, spiking_diffusion_model, S0, K, T, r, N, sigma, n_simulations, device):
+def run_multiple_mc(dataset, diffusion_model, spiking_diffusion_model, S0, K, T, r, N, sigma, n_simulations, device, folder_path):
     # Compute call and put option prices for the original dataset
     original_paths = dataset.data
     original_paths = dataset.inverse_transform(original_paths)#.squeeze(1)
@@ -303,10 +292,10 @@ def run_multiple_mc(dataset, diffusion_model, spiking_diffusion_model, S0, K, T,
     # Run multiple simulations
     for _ in range(n_simulations):
         # Generate paths using diffusion models
-        diffusion_paths = diffusion_model.sample(n_samples=10000, batch_size=100, device=device)
+        diffusion_paths = diffusion_model.sample(n_samples=10000, batch_size=1000, device=device)
         diffusion_paths = dataset.inverse_transform(diffusion_paths)#.squeeze(1)
 
-        spiking_diffusion_paths = spiking_diffusion_model.sample(n_samples=10000, batch_size=100, device=device)
+        spiking_diffusion_paths = spiking_diffusion_model.sample(n_samples=10000, batch_size=1000, device=device)
         spiking_diffusion_paths = dataset.inverse_transform(spiking_diffusion_paths)#.squeeze(1)
 
         # Compute Monte Carlo prices for the current simulation
@@ -334,6 +323,7 @@ def run_multiple_mc(dataset, diffusion_model, spiking_diffusion_model, S0, K, T,
     ax1.set_title("European Call Option Price at Each Time Step")
     ax1.set_xlabel("Time (t)")
     ax1.set_ylabel("Option Price")
+    # ax1.set_ylim(0, 10)
     ax1.legend()
     ax1.grid(True)
 
@@ -346,6 +336,7 @@ def run_multiple_mc(dataset, diffusion_model, spiking_diffusion_model, S0, K, T,
     ax2.set_title("European Put Option Price at Each Time Step")
     ax2.set_xlabel("Time (t)")
     ax2.set_ylabel("Option Price")
+    # ax2.set_ylim(0, 10)
     ax2.legend()
     ax2.grid(True)
 
@@ -353,7 +344,7 @@ def run_multiple_mc(dataset, diffusion_model, spiking_diffusion_model, S0, K, T,
     plt.tight_layout()
 
     # Save the combined plot
-    plt.savefig(f'multi_combined_prices_mu={r}_sigma={sigma}_K={K}.png')
+    plt.savefig(f'{folder_path}/multi_combined_prices_mu={r}_sigma={sigma}_K={K}.png')
 
     # Close the figure to free up memory
     plt.close()
