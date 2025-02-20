@@ -182,7 +182,7 @@ class UNet(nn.Module):
                 chs.append(now_ch)
 
         self.middleblocks = nn.ModuleList([
-            ResBlock(now_ch, now_ch, tdim, dropout, attn=True),
+            ResBlock(now_ch, now_ch, tdim, dropout, attn=False),
             ResBlock(now_ch, now_ch, tdim, dropout, attn=False),
         ])
 

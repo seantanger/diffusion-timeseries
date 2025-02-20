@@ -14,10 +14,11 @@ from scipy.fftpack import dct, idct
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--attention', default=True, type=bool, help='attention')
+parser.add_argument('--folderdir', default='scale', type=str, help='folder path')
 args = parser.parse_args()
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-folder_path = "./scale" # or "./dct_scale/", "./scale_dct/"
+folder_path = args.folderdir # or "./dct_scale/", "./scale_dct/"
 
     
 class GBMDataset(Dataset):
@@ -93,7 +94,7 @@ if __name__ == '__main__':
     K = 105        # Strike price
     T = 1          # Time to maturity (1 year)
     r = 0.02       # Risk-free rate
-    sigma = 0.01    # Volatility
+    sigma = 0.001    # Volatility
     M = 10000    # Number of paths (large for convergence)
     N = 127 # sequence length
     t = np.linspace(0, T, N+1)  # Time array
@@ -124,5 +125,5 @@ if __name__ == '__main__':
 
     title = f'{folder_path}/spiking_metrics_mu={r}_sigma={sigma}_K={K}'
     spiking_metrics = plot_metrics_comparison(real_paths = paths, generated_paths = spiking_generated_paths_transformed, title = title)
-    print('with attention')
+    
     # run_multiple_mc(dataset, diffusion, spiking_diffusion, S0, K, T, r, N, sigma, 3, device, folder_path)
