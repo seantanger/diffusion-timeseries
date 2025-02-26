@@ -11,22 +11,20 @@ class SpikingDiffusionModel:
         self.beta_start = beta_start
         self.beta_end = beta_end
         
-        # # Define beta schedule (linear)
-        # self.betas = torch.linspace(beta_start, beta_end, n_steps).to(device)
-        # self.alphas = 1 - self.betas
-        # self.alphas_cumprod = torch.cumprod(self.alphas, dim=0)
+        # Define beta schedule (linear)
+        self.betas = torch.linspace(beta_start, beta_end, n_steps).to(device)
+        self.alphas = 1 - self.betas
+        self.alphas_cumprod = torch.cumprod(self.alphas, dim=0)
 
-        # Define cosine schedule for alphas_cumprod
-        self.alphas_cumprod = self.cosine_schedule(n_steps)
-
-        # Compute betas from alphas_cumprod
-        self.alphas = torch.cat([torch.tensor([1.0]), self.alphas_cumprod[:-1] / self.alphas_cumprod[1:]])
-        self.betas = 1 - self.alphas
-
-        # Move to device
-        self.betas = self.betas.to(device)
-        self.alphas = self.alphas.to(device)
-        self.alphas_cumprod = self.alphas_cumprod.to(device)
+        # # Define cosine schedule for alphas_cumprod
+        # self.alphas_cumprod = self.cosine_schedule(n_steps)
+        # # Compute betas from alphas_cumprod
+        # self.alphas = torch.cat([torch.tensor([1.0]), self.alphas_cumprod[:-1] / self.alphas_cumprod[1:]])
+        # self.betas = 1 - self.alphas
+        # # Move to device
+        # self.betas = self.betas.to(device)
+        # self.alphas = self.alphas.to(device)
+        # self.alphas_cumprod = self.alphas_cumprod.to(device)
         
         self.model = spiking_time_unet.Spk_UNet(T=n_steps, ch=128, ch_mult=[1, 2, 2, 4], attn=[8],num_res_blocks=2, dropout=0.1, timestep=8).to(device)
         # self.model.load_state_dict(torch.load("./models/spiking_unet_noattention_128"))
@@ -129,22 +127,20 @@ class DiffusionModel:
         self.beta_start = beta_start
         self.beta_end = beta_end
         
-        # # Define beta schedule
-        # self.betas = torch.linspace(beta_start, beta_end, n_steps).to(device)
-        # self.alphas = 1 - self.betas
-        # self.alphas_cumprod = torch.cumprod(self.alphas, dim=0)
+        # Define beta schedule
+        self.betas = torch.linspace(beta_start, beta_end, n_steps).to(device)
+        self.alphas = 1 - self.betas
+        self.alphas_cumprod = torch.cumprod(self.alphas, dim=0)
     
-        # Define cosine schedule for alphas_cumprod
-        self.alphas_cumprod = self.cosine_schedule(n_steps)
-
-        # Compute betas from alphas_cumprod
-        self.alphas = torch.cat([torch.tensor([1.0]), self.alphas_cumprod[:-1] / self.alphas_cumprod[1:]])
-        self.betas = 1 - self.alphas
-
-        # Move to device
-        self.betas = self.betas.to(device)
-        self.alphas = self.alphas.to(device)
-        self.alphas_cumprod = self.alphas_cumprod.to(device)
+        # # Define cosine schedule for alphas_cumprod
+        # self.alphas_cumprod = self.cosine_schedule(n_steps)
+        # # Compute betas from alphas_cumprod
+        # self.alphas = torch.cat([torch.tensor([1.0]), self.alphas_cumprod[:-1] / self.alphas_cumprod[1:]])
+        # self.betas = 1 - self.alphas
+        # # Move to device
+        # self.betas = self.betas.to(device)
+        # self.alphas = self.alphas.to(device)
+        # self.alphas_cumprod = self.alphas_cumprod.to(device)
 
         self.model = timeseries_unet.UNet(T=n_steps, ch=128, ch_mult=[1, 2, 2, 2], attn=[8], num_res_blocks=2, dropout=0.1).to(device)
         

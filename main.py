@@ -94,7 +94,7 @@ if __name__ == '__main__':
     K = 105        # Strike price
     T = 1          # Time to maturity (1 year)
     r = 0.02       # Risk-free rate
-    sigma = 0.001    # Volatility
+    sigma = 0    # Volatility
     M = 10000    # Number of paths (large for convergence)
     N = 127 # sequence length
     t = np.linspace(0, T, N+1)  # Time array

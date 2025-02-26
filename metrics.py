@@ -159,9 +159,9 @@ def black_scholes_price(S0, K, T, r, sigma, n_timesteps, option_type="call"):
         d1 = (np.log(S0 / K) + (r + 0.5 * sigma**2) * time_to_maturity) / (sigma * np.sqrt(time_to_maturity))
         d2 = d1 - sigma * np.sqrt(time_to_maturity)
 
-    # Handle the case at maturity (t = T)
-    d1[-1] = np.inf if S0 > K else -np.inf
-    d2[-1] = np.inf if S0 > K else -np.inf
+    # # Handle the case at maturity (t = T)
+    # d1[-1] = np.inf if S0 > K else -np.inf
+    # d2[-1] = np.inf if S0 > K else -np.inf
 
     # Compute option prices at each time step
     if option_type == "call":
