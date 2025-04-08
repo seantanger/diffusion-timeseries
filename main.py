@@ -1,4 +1,3 @@
-	
 import math
 import torch
 import torch.nn as nn
@@ -7,14 +6,15 @@ import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import scipy.stats as stats
-from diffusion import DiffusionModel, SpikingDiffusionModel
+from diffusion import DiffusionModel, SpikingDiffusionModel, train_diffusion_model
 from metrics import plot_metrics_comparison, plot_paths_and_prices, run_multiple_mc
 # from syops import get_model_complexity_info
 from scipy.fftpack import dct, idct
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument('--attention', default=True, type=bool, help='attention')
 parser.add_argument('--folderdir', default='scale', type=str, help='folder path')
+parser.add_argument('--schedule', default='linear', type=str, help='diffusion scheduler')
+
 args = parser.parse_args()
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -59,34 +59,20 @@ class GBMDataset(Dataset):
         if scaled_data.ndim == 3:
             scaled_data = scaled_data.squeeze(1)
         return self.scaler.inverse_transform(scaled_data.reshape(-1, 1)).reshape(scaled_data.shape)
-    
 
-def train_diffusion_model(dataset, n_epochs, lr, batch_size, device, spiking):
-    # Create dataset
-    sequence_length = 127
-    # dataset = GBMDataset(10000, sequence_length)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    
-    # Initialize model
-    if spiking:
-        diffusion = SpikingDiffusionModel(n_steps=1000, sequence_length=sequence_length+1, device=device)
-    else:
-        diffusion = DiffusionModel(n_steps=2000, sequence_length=sequence_length+1, device=device)
-    diffusion.model.to(device)
-    optimizer = torch.optim.Adam(diffusion.model.parameters(), lr=lr)
-    losses = []
-    # Training loop
-    for epoch in range(n_epochs):
-        total_loss = 0
-        for batch in dataloader:
-            batch = batch.to(device)
-            loss = diffusion.train_step(batch, optimizer)
-            total_loss += loss
-            losses.append(loss)
-        
-        if (epoch + 1) % 10 == 0:
-            print(f"Epoch {epoch+1}, Average Loss: {total_loss/len(dataloader):.4f}")
-    return diffusion, losses
+def plot_timestep_losses(timestep_losses, title):
+    timesteps = sorted(timestep_losses.keys())
+    avg_losses = [timestep_losses[t] for t in timesteps]
+
+    # Plot
+    plt.plot(timesteps, avg_losses)
+    plt.title("Average loss per timestep")
+    plt.xlabel("Timestep")
+    plt.ylabel("Loss")
+    plt.grid(True)
+    plt.savefig(f'{folder_path}/{title}.png')
+    plt.close()
+
 
 if __name__ == '__main__':
     # Parameters
@@ -94,11 +80,11 @@ if __name__ == '__main__':
     K = 105        # Strike price
     T = 1          # Time to maturity (1 year)
     r = 0.02       # Risk-free rate
-    sigma = 0    # Volatility
+    sigma = 0.1    # Volatility
     M = 10000    # Number of paths (large for convergence)
-    N = 127 # sequence length
+    N = 63 # sequence length
     t = np.linspace(0, T, N+1)  # Time array
-    batch_size=64
+    batch_size=16
     sbatch_size=8
 
     dataset = GBMDataset(n_samples=M, sequence_length=N, S0=S0, mu=r, sigma=sigma, T=T)
@@ -112,10 +98,14 @@ if __name__ == '__main__':
     spiking_diffusion, spiking_losses = train_diffusion_model(dataset=dataset, n_epochs=1000, lr=1e-5, batch_size=sbatch_size, device=device, spiking=True)
     torch.save(spiking_diffusion.model.state_dict(), f"./parameters/spiking_timeseries_unet_mu={r}_sigma={sigma}_t={T}")
 
+    # # Plot timestep losses
+    # plot_timestep_losses(timestep_losses=timestep_losses, title='timestep_losses')
+    # plot_timestep_losses(timestep_losses=spiking_timestep_losses, title='spiking_timestep_losses')
+
     # Generate paths
-    generated_paths = diffusion.sample(n_samples = M, batch_size = 1000, device=device)
+    generated_paths = diffusion.sample(n_samples = M, batch_size = 500, device=device)
     generated_paths_transformed = dataset.inverse_transform(generated_paths)#.squeeze(1)
-    spiking_generated_paths = spiking_diffusion.sample(n_samples = M, batch_size = 1000, device=device)
+    spiking_generated_paths = spiking_diffusion.sample(n_samples = M, batch_size = 500, device=device)
     spiking_generated_paths_transformed = dataset.inverse_transform(spiking_generated_paths)#.squeeze(1)
 
     plot_paths_and_prices(paths, generated_paths_transformed, spiking_generated_paths_transformed, S0, K, T, r, N, sigma, folder_path)
@@ -125,5 +115,4 @@ if __name__ == '__main__':
 
     title = f'{folder_path}/spiking_metrics_mu={r}_sigma={sigma}_K={K}'
     spiking_metrics = plot_metrics_comparison(real_paths = paths, generated_paths = spiking_generated_paths_transformed, title = title)
-    
     # run_multiple_mc(dataset, diffusion, spiking_diffusion, S0, K, T, r, N, sigma, 3, device, folder_path)

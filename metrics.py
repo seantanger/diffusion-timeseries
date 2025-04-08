@@ -173,9 +173,9 @@ def black_scholes_price(S0, K, T, r, sigma, n_timesteps, option_type="call"):
 
     # At maturity, the option price is the payoff
     if option_type == "call":
-        option_prices[-1] = max(S0 - K, 0)
+        option_prices[0] = max(S0 - K, 0)
     elif option_type == "put":
-        option_prices[-1] = max(K - S0, 0)
+        option_prices[0] = max(K - S0, 0)
 
     return option_prices
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=120:00:00
+#SBATCH --time=72:00:00
 #SBATCH --account=def-wan
 #SBATCH --gres=gpu:1       # Request GPU "generic resources"
 #SBATCH --cpus-per-task=6  # Cores proportional to GPUs: 6 on Cedar, 16 on Graham.
@@ -11,7 +11,7 @@ module purge
 module load python/3.10
 source ~/envs/research/bin/activate
 
-python main.py \
-    --folderdir='./scale' \
+python main_2d.py \
+    --folderdir='./scale_2d' \
     --schedule='linear' \
     

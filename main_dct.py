@@ -13,7 +13,6 @@ from metrics import plot_metrics_comparison, plot_paths_and_prices, run_multiple
 from scipy.fftpack import dct, idct
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument('--attention', default=True, type=bool, help='attention')
 parser.add_argument('--folderdir', default='scale_w_dct', type=str, help='folder path')
 args = parser.parse_args()
 
@@ -96,7 +95,7 @@ def train_diffusion_model(dataset, n_epochs, lr, batch_size, device, spiking):
     if spiking:
         diffusion = SpikingDiffusionModel(n_steps=1000, sequence_length=(sequence_length+1)*2, device=device)
     else:
-        diffusion = DiffusionModel(n_steps=2000, sequence_length=(sequence_length+1)*2, device=device)
+        diffusion = DiffusionModel(n_steps=1000, sequence_length=(sequence_length+1)*2, device=device)
     diffusion.model.to(device)
     optimizer = torch.optim.Adam(diffusion.model.parameters(), lr=lr)
     losses = []
