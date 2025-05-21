@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=96:00:00
+#SBATCH --time=144:00:00
 #SBATCH --account=def-wan
 #SBATCH --gres=gpu:1       # Request GPU "generic resources"
 #SBATCH --cpus-per-task=6  # Cores proportional to GPUs: 6 on Cedar, 16 on Graham.
@@ -11,5 +11,8 @@ module purge
 module load python/3.10
 source ~/envs/research/bin/activate
 
-python main_dct.py \
-    --folderdir='./scale_w_dct' \
+python -u main_spiking.py \
+    --train --batch_size=32 --sigma=0.5 --mu=0.05 --epochs=200 --n_samples=100000 \
+    --folderdir='./results_spiking3' \
+    --resume_model='parameters_T=0.5/200spiking_unet_mu=0.05_sigma=0.5_t=0.5.pt' --resume
+    

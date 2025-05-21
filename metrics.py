@@ -6,11 +6,20 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
 import scipy.stats as stats
 
+# def estimate_gbm_parameters(S, dt):
+#     log_returns = np.log(S[:, 1:] / S[:, :-1])
+#     mean_log_returns = np.mean(log_returns)
+#     var_log_returns = np.var(log_returns, ddof=1)  # ddof=1 for sample variance
+    
+#     sigma_hat = np.sqrt(var_log_returns / dt)
+#     mu_hat = mean_log_returns / dt + 0.5 * sigma_hat**2
+    
+#     return mu_hat, sigma_hat
 
 class TimeSeriesMetrics:
     @staticmethod
-    def calculate_metrics(real_paths, generated_paths):
-        """Calculate statistical metrics for comparison"""
+    def calculate_metrics(real_paths, generated_paths, dt):
+        """Calculate statistical metrics and estimate GBM parameters (mu, sigma) for each path"""
         metrics = {}
         
         # Convert to numpy if needed
@@ -19,94 +28,119 @@ class TimeSeriesMetrics:
         if isinstance(generated_paths, torch.Tensor):
             generated_paths = generated_paths.cpu().numpy()
         
-        # Calculate returns (percentage changes)
-        real_returns = np.diff(real_paths, axis=1) / real_paths[:, :-1]
-        gen_returns = np.diff(generated_paths, axis=1) / generated_paths[:, :-1]
+        # Calculate log returns
+        real_log_returns = np.log(real_paths[:, 1:] / real_paths[:, :-1])
+        gen_log_returns = np.log(generated_paths[:, 1:] / generated_paths[:, :-1])
         
-        # Basic statistical moments
-        metrics['mean'] = {
-            'real': np.mean(real_returns),
-            'generated': np.mean(gen_returns)
-        }
-        metrics['std'] = {
-            'real': np.std(real_returns),
-            'generated': np.std(gen_returns)
-        }
-        metrics['skewness'] = {
-            'real': stats.skew(real_returns.flatten()),
-            'generated': stats.skew(gen_returns.flatten())
-        }
-        metrics['kurtosis'] = {
-            'real': stats.kurtosis(real_returns.flatten()),
-            'generated': stats.kurtosis(gen_returns.flatten())
+        # Estimate mu and sigma for each individual path
+        def estimate_gbm_params(log_returns, dt):
+            mu = np.mean(log_returns, axis=1) / dt + 0.5 * np.var(log_returns, axis=1, ddof=1) / dt
+            sigma = np.sqrt(np.var(log_returns, axis=1, ddof=1) / dt)
+            return mu, sigma
+        
+        real_mu, real_sigma = estimate_gbm_params(real_log_returns, dt)
+        gen_mu, gen_sigma = estimate_gbm_params(gen_log_returns, dt)
+        
+        # Store individual estimates
+        metrics['individual_gbm_params'] = {
+            'real_mu': real_mu,
+            'real_sigma': real_sigma,
+            'generated_mu': gen_mu,
+            'generated_sigma': gen_sigma
         }
         
-        # Autocorrelation (lag-1)
+        # Aggregate statistics (mean of individual estimates)
+        metrics['gbm_params'] = {
+            'real_mu': np.mean(real_mu),
+            'real_sigma': np.mean(real_sigma),
+            'generated_mu': np.mean(gen_mu),
+            'generated_sigma': np.mean(gen_sigma)
+        }
+        
+        # Log-return moments (for comparison)
+        metrics['log_returns'] = {
+            'real_mean': np.mean(real_log_returns),
+            'generated_mean': np.mean(gen_log_returns),
+            'real_std': np.std(real_log_returns),
+            'generated_std': np.std(gen_log_returns),
+            'real_skewness': stats.skew(real_log_returns.flatten()),
+            'generated_skewness': stats.skew(gen_log_returns.flatten()),
+            'real_kurtosis': stats.kurtosis(real_log_returns.flatten()),
+            'generated_kurtosis': stats.kurtosis(gen_log_returns.flatten())
+        }
+        
+        # Autocorrelation and KS test (unchanged)
         metrics['autocorr'] = {
-            'real': np.mean([np.corrcoef(path[:-1], path[1:])[0,1] for path in real_returns]),
-            'generated': np.mean([np.corrcoef(path[:-1], path[1:])[0,1] for path in gen_returns])
+            'real': np.mean([np.corrcoef(path[:-1], path[1:])[0,1] for path in real_log_returns]),
+            'generated': np.mean([np.corrcoef(path[:-1], path[1:])[0,1] for path in gen_log_returns])
         }
-        
-        # Kolmogorov-Smirnov test
-        ks_stat, p_value = stats.ks_2samp(real_returns.flatten(), gen_returns.flatten())
-        metrics['ks_test'] = {
-            'statistic': ks_stat,
-            'p_value': p_value
-        }
+        ks_stat, p_value = stats.ks_2samp(real_log_returns.flatten(), gen_log_returns.flatten())
+        metrics['ks_test'] = {'statistic': ks_stat, 'p_value': p_value}
         
         return metrics
 
-def plot_metrics_comparison(real_paths, generated_paths, title):
-    """Plot detailed comparison of real and generated paths"""
-    real_paths_orig = real_paths
-    generated_paths_orig = generated_paths
-
-    # Calculate metrics
-    metrics = TimeSeriesMetrics.calculate_metrics(real_paths_orig, generated_paths_orig)
+def plot_metrics_comparison(real_paths, generated_paths, title, dt):
+    """Plot comparison including distributions of mu and sigma estimates"""
+    metrics = TimeSeriesMetrics.calculate_metrics(real_paths, generated_paths, dt)
     
-    fig = plt.figure(figsize=(20, 12))
+    fig = plt.figure(figsize=(24, 16))
     
-    # Plot sample paths
-    ax1 = plt.subplot(2, 2, 1)
-    for i in range(min(5, len(real_paths_orig))):
-        plt.plot(real_paths_orig[i], alpha=0.5, label=f'Real {i+1}')
-    for i in range(min(5, len(generated_paths_orig))):
-        plt.plot(generated_paths_orig[i], '--', alpha=0.5, label=f'Generated {i+1}')
-    plt.title('Sample Paths Comparison')
+    # Plot 1: Sample paths
+    ax1 = plt.subplot(3, 2, 1)
+    for i in range(min(5, len(real_paths))):
+        plt.plot(real_paths[i], alpha=0.5, label=f'Real {i+1}')
+    for i in range(min(5, len(generated_paths))):
+        plt.plot(generated_paths[i], '--', alpha=0.5, label=f'Generated {i+1}')
+    plt.title('Sample Paths')
     plt.legend()
     
-    # Plot returns distribution
-    ax2 = plt.subplot(2, 2, 2)
-    real_returns = np.diff(real_paths_orig) / real_paths_orig[:, :-1]
-    gen_returns = np.diff(generated_paths_orig) / generated_paths_orig[:, :-1]
-    plt.hist(real_returns.flatten(), bins=50, alpha=0.5, density=True, label='Real Returns')
-    plt.hist(gen_returns.flatten(), bins=50, alpha=0.5, density=True, label='Generated Returns')
-    plt.title('Returns Distribution')
+    # Plot 2: Log returns distribution
+    ax2 = plt.subplot(3, 2, 2)
+    real_log_returns = np.log(real_paths[:, 1:] / real_paths[:, :-1])
+    gen_log_returns = np.log(generated_paths[:, 1:] / generated_paths[:, :-1])
+    plt.hist(real_log_returns.flatten(), bins=50, alpha=0.5, density=True, label='Real')
+    plt.hist(gen_log_returns.flatten(), bins=50, alpha=0.5, density=True, label='Generated')
+    plt.title('Log Returns Distribution')
     plt.legend()
     
-    # Plot Q-Q plot
-    ax3 = plt.subplot(2, 2, 3)
-    stats.probplot(real_returns.flatten(), dist="norm", plot=plt)
-    plt.title('Q-Q Plot (Real Returns)')
+    # Plot 3-4: Q-Q plots (unchanged)
+    ax3 = plt.subplot(3, 2, 3)
+    stats.probplot(real_log_returns.flatten(), dist="norm", plot=plt)
+    plt.title('Q-Q Plot (Real)')
     
-    ax4 = plt.subplot(2, 2, 4)
-    stats.probplot(gen_returns.flatten(), dist="norm", plot=plt)
-    plt.title('Q-Q Plot (Generated Returns)')
+    ax4 = plt.subplot(3, 2, 4)
+    stats.probplot(gen_log_returns.flatten(), dist="norm", plot=plt)
+    plt.title('Q-Q Plot (Generated)')
+    
+    # Plot 5: Distribution of mu estimates
+    ax5 = plt.subplot(3, 2, 5)
+    plt.hist(metrics['individual_gbm_params']['real_mu'], bins=30, alpha=0.5, label='Real', density=True)
+    plt.hist(metrics['individual_gbm_params']['generated_mu'], bins=30, alpha=0.5, label='Generated', density=True)
+    plt.title('Distribution of μ Estimates')
+    plt.legend()
+    
+    # Plot 6: Distribution of sigma estimates
+    ax6 = plt.subplot(3, 2, 6)
+    plt.hist(metrics['individual_gbm_params']['real_sigma'], bins=30, alpha=0.5, label='Real', density=True)
+    plt.hist(metrics['individual_gbm_params']['generated_sigma'], bins=30, alpha=0.5, label='Generated', density=True)
+    plt.title('Distribution of σ Estimates')
+    plt.legend()
     
     plt.tight_layout()
     plt.savefig(f'{title}.png')
     plt.close()
     
-    # Print metrics
-    print("\nStatistical Metrics Comparison:")
-    print(f"Mean Returns: Real = {metrics['mean']['real']:.6f}, Generated = {metrics['mean']['generated']:.6f}")
-    print(f"Std Returns: Real = {metrics['std']['real']:.6f}, Generated = {metrics['std']['generated']:.6f}")
-    print(f"Skewness: Real = {metrics['skewness']['real']:.6f}, Generated = {metrics['skewness']['generated']:.6f}")
-    print(f"Kurtosis: Real = {metrics['kurtosis']['real']:.6f}, Generated = {metrics['kurtosis']['generated']:.6f}")
-    print(f"Autocorrelation: Real = {metrics['autocorr']['real']:.6f}, Generated = {metrics['autocorr']['generated']:.6f}")
-    print(f"\nKolmogorov-Smirnov Test:")
-    print(f"Statistic = {metrics['ks_test']['statistic']:.6f}")
-    print(f"P-value = {metrics['ks_test']['p_value']:.6f}")
+    # Print metrics (same as before)
+    print("\nStatistical Metrics (Log Returns):")
+    print(f"Mean: Real = {metrics['log_returns']['real_mean']:.6f}, Generated = {metrics['log_returns']['generated_mean']:.6f}")
+    print(f"Std: Real = {metrics['log_returns']['real_std']:.6f}, Generated = {metrics['log_returns']['generated_std']:.6f}")
+    
+    print("\nGBM Parameter Estimates:")
+    print(f"μ: Real = {metrics['gbm_params']['real_mu']:.6f}, Generated = {metrics['gbm_params']['generated_mu']:.6f}")
+    print(f"σ: Real = {metrics['gbm_params']['real_sigma']:.6f}, Generated = {metrics['gbm_params']['generated_sigma']:.6f}")
+    
+    print("\nKS Test (Log Returns):")
+    print(f"Statistic = {metrics['ks_test']['statistic']:.6f}, p-value = {metrics['ks_test']['p_value']:.6f}")
     
     return metrics
 
@@ -179,17 +213,16 @@ def black_scholes_price(S0, K, T, r, sigma, n_timesteps, option_type="call"):
 
     return option_prices
 
-def plot_paths_and_prices(original_paths, diffusion_paths, spiking_diffusion_paths, S0, K, T, r, N, sigma, folder_path):
+
+def plot_paths_and_prices(original_paths, diffusion_paths, S0, K, T, r, N, sigma, folder_path):
     # Compute call option prices at each time step
     call_prices_mc = monte_carlo_option_price(original_paths, K, T, r, N, option_type="call")
     call_prices_diffusion = monte_carlo_option_price(diffusion_paths, K, T, r, N, option_type="call")
-    call_prices_spiking_diffusion = monte_carlo_option_price(spiking_diffusion_paths, K, T, r, N, option_type="call")
     call_prices_bs = black_scholes_price(S0, K, T, r, sigma, n_timesteps=N, option_type="call")
 
     # Compute put option prices at each time step
     put_prices_mc = monte_carlo_option_price(original_paths, K, T, r, N, option_type="put")
     put_prices_diffusion = monte_carlo_option_price(diffusion_paths, K, T, r, N, option_type="put")
-    put_prices_spiking_diffusion = monte_carlo_option_price(spiking_diffusion_paths, K, T, r, N, option_type="put")
     put_prices_bs = black_scholes_price(S0, K, T, r, sigma, n_timesteps=N, option_type="put")
 
     # Plot: Create a figure with two subplots
@@ -198,46 +231,39 @@ def plot_paths_and_prices(original_paths, diffusion_paths, spiking_diffusion_pat
     # Plot call option prices
     ax1.plot(t, call_prices_mc, label="Monte Carlo Call Price", color="blue", linestyle="--")
     ax1.plot(t, call_prices_diffusion, label="Monte Carlo Call Price - diffusion", color="orange", linestyle="--")
-    ax1.plot(t, call_prices_spiking_diffusion, label="Monte Carlo Call Price - spiking diffusion", color="green", linestyle="--")
     ax1.plot(t, call_prices_bs, label="Black-Scholes Call Price", color="red", linestyle="-")
     ax1.set_title("European Call Option Price at Each Time Step")
     ax1.set_xlabel("Time (t)")
     ax1.set_ylabel("Option Price")
-    # ax1.set_ylim(0, 10)
     ax1.legend()
     ax1.grid(True)
 
     # Plot put option prices
     ax2.plot(t, put_prices_mc, label="Monte Carlo Put Price", color="blue", linestyle="--")
     ax2.plot(t, put_prices_diffusion, label="Monte Carlo Put Price - diffusion", color="orange", linestyle="--")
-    ax2.plot(t, put_prices_spiking_diffusion, label="Monte Carlo Put Price - spiking diffusion", color="green", linestyle="--")
     ax2.plot(t, put_prices_bs, label="Black-Scholes Put Price", color="red", linestyle="-")
     ax2.set_title("European Put Option Price at Each Time Step")
     ax2.set_xlabel("Time (t)")
     ax2.set_ylabel("Option Price")
-    # ax2.set_ylim(0, 10)
     ax2.legend()
     ax2.grid(True)
 
     # Adjust layout to prevent overlap
     plt.tight_layout()
-    # plt.show()
     # Save the combined plot
     plt.savefig(f'{folder_path}/combined_prices_mu={r}_sigma={sigma}_K={K}.png')
     # Close the figure to free up memory
     plt.close()
 
-    # Compare the 3 methods: Create a figure with three subplots
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 15))
+    # Compare the 2 methods: Create a figure with two subplots
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
     # Calculate global y-axis limits
     y_min = min(
         np.min(original_paths),
-        np.min(diffusion_paths),
-        np.min(spiking_diffusion_paths))
+        np.min(diffusion_paths))
     y_max = max(
         np.max(original_paths),
-        np.max(diffusion_paths),
-        np.max(spiking_diffusion_paths))
+        np.max(diffusion_paths))
     # Plot original GBM paths
     ax1.plot(t, original_paths.T, lw=1)  # Transpose paths to (M, N)
     ax1.set_title("Original GBM Paths")
@@ -254,97 +280,11 @@ def plot_paths_and_prices(original_paths, diffusion_paths, spiking_diffusion_pat
     ax2.set_ylim(y_min, y_max)  # Set y-axis limits
     ax2.grid(True)
 
-    # Plot spiking diffusion-generated paths
-    ax3.plot(t, spiking_diffusion_paths.T, lw=1)  # Transpose paths to (M, N)
-    ax3.set_title("Spiking Diffusion-Generated Paths")
-    ax3.set_xlabel("Time (t)")
-    ax3.set_ylabel("Price")
-    ax3.set_ylim(y_min, y_max)  # Set y-axis limits
-    ax3.grid(True)
-
     # Adjust layout to prevent overlap
     plt.tight_layout()
 
     # Save the combined plot
     plt.savefig(f'{folder_path}/generated_paths_mu={r}_sigma={sigma}_K={K}.png')
-
-    # Close the figure to free up memory
-    plt.close()
-
-def run_multiple_mc(dataset, diffusion_model, spiking_diffusion_model, S0, K, T, r, N, sigma, n_simulations, device, folder_path):
-    # Compute call and put option prices for the original dataset
-    original_paths = dataset.data
-    original_paths = dataset.inverse_transform(original_paths)#.squeeze(1)
-
-    call_prices_mc = monte_carlo_option_price(original_paths, K, T, r, N, option_type="call")
-    put_prices_mc = monte_carlo_option_price(original_paths, K, T, r, N, option_type="put")
-
-    # Compute Black-Scholes prices
-    call_prices_bs = black_scholes_price(S0, K, T, r, sigma, n_timesteps=N, option_type="call")
-    put_prices_bs = black_scholes_price(S0, K, T, r, sigma, n_timesteps=N, option_type="put")
-
-    # Initialize lists to store results from multiple simulations
-    call_prices_diffusion_all = []
-    call_prices_spiking_diffusion_all = []
-    put_prices_diffusion_all = []
-    put_prices_spiking_diffusion_all = []
-
-    # Run multiple simulations
-    for _ in range(n_simulations):
-        # Generate paths using diffusion models
-        diffusion_paths = diffusion_model.sample(n_samples=10000, batch_size=1000, device=device)
-        diffusion_paths = dataset.inverse_transform(diffusion_paths)#.squeeze(1)
-
-        spiking_diffusion_paths = spiking_diffusion_model.sample(n_samples=10000, batch_size=1000, device=device)
-        spiking_diffusion_paths = dataset.inverse_transform(spiking_diffusion_paths)#.squeeze(1)
-
-        # Compute Monte Carlo prices for the current simulation
-        call_prices_diffusion = monte_carlo_option_price(diffusion_paths, K, T, r, N, option_type="call")
-        call_prices_spiking_diffusion = monte_carlo_option_price(spiking_diffusion_paths, K, T, r, N, option_type="call")
-        put_prices_diffusion = monte_carlo_option_price(diffusion_paths, K, T, r, N, option_type="put")
-        put_prices_spiking_diffusion = monte_carlo_option_price(spiking_diffusion_paths, K, T, r, N, option_type="put")
-
-        # Append results to the lists
-        call_prices_diffusion_all.append(call_prices_diffusion)
-        call_prices_spiking_diffusion_all.append(call_prices_spiking_diffusion)
-        put_prices_diffusion_all.append(put_prices_diffusion)
-        put_prices_spiking_diffusion_all.append(put_prices_spiking_diffusion)
-
-    # Plot: Create a figure with two subplots
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12))
-    t = np.linspace(0, T, N + 1)  # Time array
-
-    # Plot call option prices
-    ax1.plot(t, call_prices_mc, label="Monte Carlo Call Price (Original)", color="blue", linestyle="--", alpha=0.8)
-    for i in range(n_simulations):
-        ax1.plot(t, call_prices_diffusion_all[i], color="orange", linestyle="--", alpha=0.3, label="Diffusion" if i == 0 else None)
-        ax1.plot(t, call_prices_spiking_diffusion_all[i], color="green", linestyle="--", alpha=0.3, label="Spiking Diffusion" if i == 0 else None)
-    ax1.plot(t, call_prices_bs, label="Black-Scholes Call Price", color="red", linestyle="-", alpha=0.8)
-    ax1.set_title("European Call Option Price at Each Time Step")
-    ax1.set_xlabel("Time (t)")
-    ax1.set_ylabel("Option Price")
-    # ax1.set_ylim(0, 10)
-    ax1.legend()
-    ax1.grid(True)
-
-    # Plot put option prices
-    ax2.plot(t, put_prices_mc, label="Monte Carlo Put Price (Original)", color="blue", linestyle="--", alpha=0.8)
-    for i in range(n_simulations):
-        ax2.plot(t, put_prices_diffusion_all[i], color="orange", linestyle="--", alpha=0.3, label="Diffusion" if i == 0 else None)
-        ax2.plot(t, put_prices_spiking_diffusion_all[i], color="green", linestyle="--", alpha=0.3, label="Spiking Diffusion" if i == 0 else None)
-    ax2.plot(t, put_prices_bs, label="Black-Scholes Put Price", color="red", linestyle="-", alpha=0.8)
-    ax2.set_title("European Put Option Price at Each Time Step")
-    ax2.set_xlabel("Time (t)")
-    ax2.set_ylabel("Option Price")
-    # ax2.set_ylim(0, 10)
-    ax2.legend()
-    ax2.grid(True)
-
-    # Adjust layout to prevent overlap
-    plt.tight_layout()
-
-    # Save the combined plot
-    plt.savefig(f'{folder_path}/multi_combined_prices_mu={r}_sigma={sigma}_K={K}.png')
 
     # Close the figure to free up memory
     plt.close()

@@ -11,7 +11,8 @@ module purge
 module load python/3.10
 source ~/envs/research/bin/activate
 
-python main.py \
-    --folderdir='./scale' \
-    --schedule='linear' \
+python -u main_nonspiking.py \
+    --train --batch_size=128 --sigma=0.1 --mu=0.05 --epochs=800 --n_samples=100000 \
+    --folderdir='./results_nonspiking' \
+    --resume_model='parameters_T=0.5/400unet_mu=0.05_sigma=0.1_t=0.5.pt' --resume
     
