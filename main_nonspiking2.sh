@@ -12,7 +12,7 @@ module load python/3.10
 source ~/envs/research/bin/activate
 
 python -u main_nonspiking.py \
-    --train --batch_size=128 --sigma=0.3 --mu=0.05 --epochs=800 --n_samples=100000 \
+    --batch_size=128 --sigma=0.3 --mu=0.05 --epochs=400 --n_samples=100000 \
     --folderdir='./results_nonspiking2' \
-    --resume_model='parameters_T=0.5/400unet_mu=0.05_sigma=0.3_t=0.5.pt' --resume
+    --resume_model='parameters_T=0.5/800unet_mu=0.05_sigma=0.3_t=0.5.pt' --resume
     

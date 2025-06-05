@@ -12,7 +12,7 @@ module load python/3.10
 source ~/envs/research/bin/activate
 
 python -u main_spiking.py \
-    --train --batch_size=32 --sigma=0.5 --mu=0.05 --epochs=200 --n_samples=100000 \
+    --batch_size=128 --sigma=0.5 --mu=0.05 --epochs=400 --n_samples=100000 \
     --folderdir='./results_spiking3' \
-    --resume_model='parameters_T=0.5/200spiking_unet_mu=0.05_sigma=0.5_t=0.5.pt' --resume
+    --resume_model='parameters_T=0.5/800spiking_unet_mu=0.05_sigma=0.5_t=0.5.pt' --resume
     

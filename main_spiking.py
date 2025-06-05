@@ -19,6 +19,8 @@ parser.add_argument('--train', action='store_true', default=False, help='train f
 parser.add_argument('--folderdir', default='results', type=str, help='folder path')
 parser.add_argument('--schedule', default='linear', type=str, help='diffusion scheduler')
 parser.add_argument('--parallel', default=False, help='parallel training')
+parser.add_argument('--dataset', type=str, default='cifar10', help='dataset name')
+
 # Training
 parser.add_argument('--resume', action='store_true', default=False, help="load pre-trained model")
 parser.add_argument('--resume_model', type=str, help='resume model path')
