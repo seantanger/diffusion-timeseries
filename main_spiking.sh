@@ -13,7 +13,7 @@ source ~/envs/research/bin/activate
 
 python -u main.py \
     --spiking=True \
-    --train --dataset='Heston' --batch_size=32 --sigma=0.1 --mu=0.05 --epochs=400 --n_samples=100000 \
+    --train --dataset='Heston' --batch_size=128 --theta=0.1 --mu=0.05 --epochs=400 --n_samples=100000 \
     --folderdir='./results_spiking' \
-    --resume_model='parameters_T=0.5/1200spiking_unet_mu=0.05_sigma=0.1_t=0.5.pt' # --resume
+    --resume_model='parameters_heston/400spiking_unet_mu=0.05_theta=0.1_t=0.5.pt' --resume
     
