@@ -229,9 +229,9 @@ def plot_paths_and_prices(original_paths, diffusion_paths, S0, K, T, r, N, sigma
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 12))
     t = np.linspace(0, T, N+1)  # Time array
     # Plot call option prices
-    ax1.plot(t, call_prices_mc, label="Monte Carlo Call Price", color="blue", linestyle="--")
+    ax1.plot(t, call_prices_mc, label="Monte Carlo Call Price - actual", color="blue", linestyle="--")
     ax1.plot(t, call_prices_diffusion, label="Monte Carlo Call Price - diffusion", color="orange", linestyle="--")
-    ax1.plot(t, call_prices_bs, label="Black-Scholes Call Price", color="red", linestyle="-")
+    # ax1.plot(t, call_prices_bs, label="Black-Scholes Call Price", color="red", linestyle="-")
     ax1.set_title("European Call Option Price at Each Time Step")
     ax1.set_xlabel("Time (t)")
     ax1.set_ylabel("Option Price")
@@ -239,9 +239,9 @@ def plot_paths_and_prices(original_paths, diffusion_paths, S0, K, T, r, N, sigma
     ax1.grid(True)
 
     # Plot put option prices
-    ax2.plot(t, put_prices_mc, label="Monte Carlo Put Price", color="blue", linestyle="--")
+    ax2.plot(t, put_prices_mc, label="Monte Carlo Put Price - actual", color="blue", linestyle="--")
     ax2.plot(t, put_prices_diffusion, label="Monte Carlo Put Price - diffusion", color="orange", linestyle="--")
-    ax2.plot(t, put_prices_bs, label="Black-Scholes Put Price", color="red", linestyle="-")
+    # ax2.plot(t, put_prices_bs, label="Black-Scholes Put Price", color="red", linestyle="-")
     ax2.set_title("European Put Option Price at Each Time Step")
     ax2.set_xlabel("Time (t)")
     ax2.set_ylabel("Option Price")
@@ -284,7 +284,7 @@ def plot_paths_and_prices(original_paths, diffusion_paths, S0, K, T, r, N, sigma
     plt.tight_layout()
 
     # Save the combined plot
-    plt.savefig(f'{folder_path}/generated_paths_mu={r}_sigma={sigma}_K={K}.png')
+    plt.savefig(f'{folder_path}/generated_paths_mu={r}_sigma={sigma}.png')
 
     # Close the figure to free up memory
     plt.close()
