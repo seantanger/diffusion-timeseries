@@ -1,5 +1,5 @@
 # diffusion-timeseries
-Run the shell script to train a model or use model to generate. See arguments in main.py.
+Run the shell script to train a model or use model to generate asset price paths. See arguments in main.py. Create your own training dataset or use the GBM or Hestons training dataset.
 
 ## Acknowledgments
 
