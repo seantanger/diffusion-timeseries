@@ -1,4 +1,5 @@
 # diffusion-timeseries
+Run the shell script to train a model or use model to generate. See arguments in main.py.
 
 ## Acknowledgments
 
