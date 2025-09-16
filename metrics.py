@@ -6,15 +6,6 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
 import scipy.stats as stats
 
-# def estimate_gbm_parameters(S, dt):
-#     log_returns = np.log(S[:, 1:] / S[:, :-1])
-#     mean_log_returns = np.mean(log_returns)
-#     var_log_returns = np.var(log_returns, ddof=1)  # ddof=1 for sample variance
-    
-#     sigma_hat = np.sqrt(var_log_returns / dt)
-#     mu_hat = mean_log_returns / dt + 0.5 * sigma_hat**2
-    
-#     return mu_hat, sigma_hat
 
 class TimeSeriesMetrics:
     @staticmethod
@@ -193,9 +184,6 @@ def black_scholes_price(S0, K, T, r, sigma, n_timesteps, option_type="call"):
         d1 = (np.log(S0 / K) + (r + 0.5 * sigma**2) * time_to_maturity) / (sigma * np.sqrt(time_to_maturity))
         d2 = d1 - sigma * np.sqrt(time_to_maturity)
 
-    # # Handle the case at maturity (t = T)
-    # d1[-1] = np.inf if S0 > K else -np.inf
-    # d2[-1] = np.inf if S0 > K else -np.inf
 
     # Compute option prices at each time step
     if option_type == "call":

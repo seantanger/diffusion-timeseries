@@ -238,7 +238,7 @@ class UNet(nn.Module):
 if __name__ == '__main__':
     batch_size = 8
     model = UNet(
-        T=1000, ch=128, ch_mult=[1, 2, 2, 2], attn=[8],
+        T=1000, ch=128, ch_mult=[1, 2, 4, 8], attn=[8],
         num_res_blocks=2, dropout=0.1)
     x = torch.randn(batch_size,1, 64)
     t = torch.randint(1000, (batch_size, ))
@@ -246,3 +246,9 @@ if __name__ == '__main__':
 
     print(y.shape)
     # print(model)
+    model_size = 0
+    for param in model.parameters():
+        model_size += param.data.nelement()
+    print('Model params: %.2f M' % (model_size / 1024 / 1024))
+    # print(model)
+

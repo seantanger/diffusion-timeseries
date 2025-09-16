@@ -181,8 +181,7 @@ def main():
 
     np.savez(f'{folder_path}/paths.npz', matrix1=paths, matrix2=generated_paths_transformed)
     print(f"number of final paths: {generated_paths_transformed.shape}")
-    # generated_paths_transformed = generated_paths_transformed[(generated_paths_transformed > 0).all(axis=1)]
-    # print(f"number of final paths after removing negatives: {generated_paths_transformed.shape}")
+
     plot_paths_and_prices(paths, generated_paths_transformed, S0, K, T, mu, N, sigma, folder_path)
 
     title = f'{folder_path}/final_metrics_mu={mu}_sigma={sigma}_K={K}'

@@ -13,17 +13,16 @@ class GBMDataset(Dataset):
         self.data = []
         self.T = T
         self.sequence_length = sequence_length
-        # t = np.arange(sequence_length) * dt
-        # print(t)
+
         dt = T / sequence_length
         t = np.linspace(0, T, sequence_length+1)
         dW = np.random.normal(0, np.sqrt(dt), size=(n_samples, sequence_length))
         W = np.cumsum(dW, axis=1)
         paths = S0 * np.exp((mu - 0.5 * sigma**2) * t[1:] + sigma * W)
         paths = np.hstack([S0 * np.ones((n_samples, 1)), paths])
-        # paths = paths[:, :-1]
         self.data = np.array(paths)
         # Fit scaler on all data
+        
         # self.scaler = MinMaxScaler(feature_range=(-1, 1))
         self.scaler = StandardScaler()
 
